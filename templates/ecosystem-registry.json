@@ -1,0 +1,62 @@
+[
+  {
+    "name": "superpowers",
+    "category": "Productivity",
+    "type": "plugin",
+    "description": "Git worktrees, planning, writing skills",
+    "detect": "ls ~/.claude/plugins/superpowers 2>/dev/null",
+    "suggest_when": "always",
+    "install": "claude plugin add superpowers",
+    "url": "https://github.com/obra/superpowers"
+  },
+  {
+    "name": "playwright-mcp",
+    "category": "Testing",
+    "type": "mcp",
+    "description": "Browser automation for E2E testing",
+    "detect": "grep -q 'playwright' ~/.claude/settings.json 2>/dev/null",
+    "suggest_when": "has_frontend",
+    "install": "claude mcp add playwright -- npx @anthropic-ai/mcp-playwright",
+    "url": "https://github.com/anthropics/mcp-playwright"
+  },
+  {
+    "name": "context7",
+    "category": "Context",
+    "type": "mcp",
+    "description": "Up-to-date library documentation lookup",
+    "detect": "grep -q 'context7' ~/.claude/settings.json 2>/dev/null",
+    "suggest_when": "has_dependencies",
+    "install": "claude mcp add context7 -- npx @context7/mcp",
+    "url": "https://github.com/context7/context7"
+  },
+  {
+    "name": "atlassian-mcp",
+    "category": "Integrations",
+    "type": "mcp",
+    "description": "Jira issues, Confluence pages",
+    "detect": "grep -q 'atlassian' ~/.claude/settings.json 2>/dev/null",
+    "suggest_when": "has_jira_refs",
+    "install": "claude mcp add atlassian -- npx @anthropic-ai/mcp-atlassian",
+    "url": "https://github.com/anthropics/mcp-atlassian"
+  },
+  {
+    "name": "github-cli",
+    "category": "Integrations",
+    "type": "cli",
+    "description": "GitHub PRs, issues, actions from CLI",
+    "detect": "which gh 2>/dev/null",
+    "suggest_when": "has_git",
+    "install": "brew install gh && gh auth login",
+    "url": "https://cli.github.com"
+  },
+  {
+    "name": "docker-mcp",
+    "category": "Development",
+    "type": "mcp",
+    "description": "Container management and inspection",
+    "detect": "grep -q 'docker' ~/.claude/settings.json 2>/dev/null",
+    "suggest_when": "has_docker",
+    "install": "claude mcp add docker -- npx @anthropic-ai/mcp-docker",
+    "url": "https://github.com/anthropics/mcp-docker"
+  }
+]

@@ -1,0 +1,114 @@
+---
+name: review
+description: Multi-dimension code review. Dispatches parallel agents for security, tests, architecture, performance, naming, and error-handling. Run /review to start.
+allowed-tools: Agent, Bash, Read, Glob, Grep
+---
+
+# Code Review
+
+Multi-dimension code review adapted to this project's stack and patterns.
+
+## Usage
+
+```
+/review                          # current branch vs base
+/review do staging               # compare against specific branch
+/review ostatnie 3 commity       # natural language scope
+```
+
+## How It Works
+
+1. Determine scope from `$ARGUMENTS` (default: current branch changes vs base)
+2. Get the diff: `git diff [base]...HEAD` (or as specified)
+3. Get list of changed files: `git diff [base]...HEAD --name-only`
+4. Dispatch 6+ parallel review agents (one per dimension)
+5. Collect findings, deduplicate, produce consolidated report
+
+## Determining Scope
+
+Parse `$ARGUMENTS` as natural language:
+- Empty / no args: `git diff main...HEAD` (or master, or develop - detect base branch)
+- "do [branch]": `git diff [branch]...HEAD`
+- "ostatnie N commity" / "last N commits": `git log -N --format=%H | tail -1` then diff from that
+- "staged": `git diff --cached`
+
+## Dispatching Agents
+
+For each prompt file in `${CLAUDE_SKILL_DIR}/prompts/`:
+
+Launch an Agent with:
+- The prompt file content as instructions
+- The full diff as context
+- The list of changed files
+- Instructions to output findings in the standard format
+
+Run ALL dimension agents IN PARALLEL.
+
+## Finding Format
+
+Each agent must return findings in this format:
+
+```
+FINDING: [severity] [title]
+FILE: [path]:[line]
+DESCRIPTION: [what's wrong]
+SUGGESTION: [how to fix]
+```
+
+Severity levels: `critical`, `high`, `medium`, `low`, `info`
+
+## Consolidated Report
+
+After all agents complete, produce:
+
+```markdown
+## Code Review - [N] dimension(s), [M] finding(s)
+
+| Dimension      | Findings | Critical | High | Medium | Low | Info |
+|----------------|----------|----------|------|--------|-----|------|
+| security       | ...      | ...      | ...  | ...    | ... | ...  |
+| tests          | ...      | ...      | ...  | ...    | ... | ...  |
+| architecture   | ...      | ...      | ...  | ...    | ... | ...  |
+| performance    | ...      | ...      | ...  | ...    | ... | ...  |
+| naming         | ...      | ...      | ...  | ...    | ... | ...  |
+| error-handling | ...      | ...      | ...  | ...    | ... | ...  |
+| **Total**      | **...**  | **...**  |**...**|**...**|**...**|**...**|
+
+### Verdict: [APPROVED | APPROVED WITH NOTES | CHANGES REQUESTED]
+
+[1-2 sentence summary of most important findings]
+
+---
+
+### [dimension] - [N] finding(s)
+
+<details>
+<summary>[critical count] critical - [high count] high - [medium count] medium - [low count] low - [info count] info</summary>
+
+#### [SEVERITY] [Title]
+**File:** `path/to/file:line`
+[Description]
+**Suggestion:** [How to fix]
+
+</details>
+```
+
+### Verdict Rules
+
+- **APPROVED**: 0 critical, 0 high findings
+- **APPROVED WITH NOTES**: 0 critical, 1+ high findings
+- **CHANGES REQUESTED**: 1+ critical findings
+
+## Uncovered Files
+
+If changed files don't match any dimension's typical scope, note them:
+
+```
+### Uncovered Files
+
+2 file(s) not covered by any review dimension:
+  .github/workflows/ci.yml
+  docker-compose.yml
+
+Consider adding custom review dimensions for these file types.
+```
