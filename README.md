@@ -6,10 +6,20 @@ Scans your project for **non-inferable details** - anomalies, domain rules, gotc
 
 Based on [ETH Zurich research](https://www.infoq.com/news/2026/03/agents-context-file-value-review/) showing that generic context files degrade AI performance, while non-inferable details provide real value.
 
-## Install
+## Installation
 
-```bash
-claude plugin add claude-setup
+### Via Claude Code UI
+
+1. Launch Claude Code and run `/plugin`
+2. Go to **Marketplaces → Add marketplace**
+3. Enter `kwiercioch-okicode/claude-setup`
+4. Go to **Discover**, select **claude-setup**, then **Install**
+
+### Command line
+
+```
+/plugin marketplace add kwiercioch-okicode/claude-setup
+/plugin install claude-setup@claude-setup
 ```
 
 ## Commands
