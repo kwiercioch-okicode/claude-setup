@@ -54,45 +54,52 @@ For each learning, determine where it belongs:
 | Pattern in new domain | Create new skill |
 | New knowledge about project | Update `.claude/docs/` |
 
-## Step 3: Present Summary
+## Step 3: Present Learnings One by One
 
-Present ALL learnings in a compact list first. NEVER dump full code or content upfront.
+Present learnings ONE AT A TIME. Wait for user response before showing the next one.
 
-### Format:
+NEVER dump all learnings at once. NEVER show full code upfront.
+
+### First, show the count:
 
 ```
 /cs:learn — N learnings found
+```
 
-1. [skill-name]: [one-line description]
+### Then immediately show the first learning:
+
+```
+[1/N] [skill-name]: [one-line description]
    → [target file path] ([action: new gotcha / new entry / new skill])
+   [2-3 sentences explaining what this learning captures and why it matters.
+   Enough context to decide without seeing the code.]
 
-2. [skill-name]: [one-line description]
-   → [target file path] ([action])
-
-3. ...
-
-Apply all? (a) | Select: 1,3 | Review one: r2 | Skip all: (n)
+   Apply (a) | Review code (r) | Skip (s)
 ```
 
-### User actions:
+### Rules:
+- **2-3 sentence context** — explain WHAT the learning says and WHY it matters, not what happened in the session
+- **No "From this session:"** — never explain the session context
+- **No code** — code only appears on `r` request
+- **Wait for response** — do NOT show `[2/N]` until user responds to `[1/N]`
 
-- **`a`** — apply all learnings without review
-- **`1,3`** or **`1 3`** — apply only selected learnings
-- **`r2`** — review learning #2 in detail before deciding
-- **`n`** — skip all
+### User actions per learning:
+- **`a`** — apply this learning immediately, then show next
+- **`r`** — show review detail (see Step 4), then ask again
+- **`s`** — skip this learning, show next
 
-## Step 4: Review Detail (on `rN` request)
+## Step 4: Review Detail (on `r` request)
 
-When user asks to review a specific learning, show a compact preview:
+When user asks to review, show where the change goes and collapsed code:
 
 ```
-N. [skill-name]: [one-line description]
+[N/M] [skill-name]: [one-line description]
    → [target file path]
 
    After: "[section name where it goes]"
 
    + ### [heading of new content]
-   + [2-3 sentence summary of what the gotcha/pattern says]
+   + [2-3 sentence summary of the gotcha/pattern]
    + [key rule or constraint in one line]
    +
    + [N lines of code]
@@ -104,8 +111,7 @@ Rules for review detail:
 - **"After:"** — show WHERE in the file the content goes (after which section/heading)
 - **Summary lines** — 2-3 sentences describing the learning, NOT the full text
 - **Code is collapsed** — show `[N lines of code]` count, expand only on `y`
-- **No session context** — do NOT include "From this session: ..." explanations
-- **Actions per learning** — show full code (y), apply (a), or skip (s)
+- **Actions** — show full code (y), apply (a), or skip (s)
 
 ## Step 5: Apply Changes
 
