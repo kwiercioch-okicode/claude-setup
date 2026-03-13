@@ -1,8 +1,5 @@
 ---
-name: learn
-description: Learn from the current session. Analyzes corrections, patterns, and gotchas discovered during work to update skills and configuration.
-user-invocable: true
-allowed-tools: Agent, Read, Write, Edit, Glob, Grep
+description: "Learn from the current session. Analyzes corrections, patterns, and gotchas discovered during work to update skills and configuration."
 ---
 
 # /cs:learn - Learn From This Session

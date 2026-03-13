@@ -1,8 +1,5 @@
 ---
-name: sync
-description: Synchronize .claude/ configuration with current codebase. Detects drift, broken references, and missing coverage.
-user-invocable: true
-allowed-tools: Agent, Bash, Read, Write, Edit, Glob, Grep
+description: "Synchronize .claude/ configuration with current codebase. Detects drift, broken references, and missing coverage."
 ---
 
 # /cs:sync - Synchronize Configuration

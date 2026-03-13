@@ -1,9 +1,5 @@
 ---
-name: init
-description: Generate .claude/ configuration from codebase analysis. Creates CLAUDE.md, skills, agents, and review dimensions.
-user-invocable: true
-argument-hint: "[project-path]"
-allowed-tools: Agent, Bash, Read, Write, Edit, Glob, Grep
+description: "Generate .claude/ configuration from codebase analysis. Creates CLAUDE.md, skills, agents, and review dimensions."
 ---
 
 # /cs:init - Generate .claude/ Configuration
