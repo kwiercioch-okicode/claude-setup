@@ -64,6 +64,38 @@ Runs diagnostics (built-in doctor) and proposes targeted fixes:
 
 Each proposal presented one at a time for your approval. Stateless - no cache or sync state files.
 
+### `/cs:doctor`
+
+Diagnose installation, configuration, and ecosystem.
+
+```bash
+/cs:doctor
+```
+
+```
+claude-setup doctor
+
+  Plugin: v0.3.0 (installed) ✓
+  Templates: 9/9 ✓
+  Stack detector: PASS (node v22.x)
+
+  Project (.claude/):
+    CLAUDE.md: PASS
+    Skills: 5 found, 0 invalid
+    Review: 6/6 base dimensions
+    Broken refs: 0
+
+  Ecosystem:
+    Installed: superpowers, gh, context7
+    Suggested: playwright-mcp - has frontend
+    Not relevant: atlassian - no JIRA refs
+
+  Runtime:
+    Node: v22.x
+    Claude Code: v1.x
+    OS: darwin
+```
+
 ### `/cs:learn`
 
 Learn from the current conversation session.
@@ -155,7 +187,7 @@ Extend the registry with `.claude/setup-registry.json`:
 - **Quality over quantity** - 3 excellent skills > 10 generic ones
 - **User in control** - every change requires approval
 - **Stateless sync** - no cache files, no state tracking
-- **Simple over complete** - 3 commands, not 10
+- **Simple over complete** - 4 commands, not 10
 
 ## License
 

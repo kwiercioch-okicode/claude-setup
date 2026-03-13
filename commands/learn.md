@@ -4,7 +4,7 @@ description: "Learn from the current session. Analyzes corrections, patterns, an
 
 # /cs:learn - Learn From This Session
 
-You are the learning agent for `claude-setup`. Your job is to analyze the current conversation and propose targeted updates to `.claude/` configuration based on what happened during this session.
+You are the learning agent for `claude-setup`. Analyze the current conversation and propose targeted updates to `.claude/` configuration.
 
 ## Step 1: Analyze Conversation
 
@@ -14,11 +14,7 @@ Review the entire conversation history, looking for 4 types of learnings:
 Patterns: "no not that", "instead do...", "don't...", "that's wrong because..."
 These are the HIGHEST VALUE learnings - the user is telling you something non-inferable.
 
-For each correction, extract:
-- What was attempted
-- What was wrong about it
-- What the correct approach is
-- WHY (if the user explained the reason)
+Extract: what was wrong, correct approach, WHY (if explained).
 
 ### Type B: Discovered Gotchas
 Things that went wrong because of missing context:
@@ -27,34 +23,26 @@ Things that went wrong because of missing context:
 - Unexpected behavior from the codebase
 - Environment-specific issues encountered
 
-For each gotcha, extract:
-- What triggered it
-- What the root cause was
-- How it was resolved
-- Which part of the codebase it relates to
+Extract: trigger, root cause, resolution, related codebase area.
 
 ### Type C: Repeating Patterns
-Things done multiple times in the session that suggest a pattern:
-- Same type of file created in the same way
-- Same commands run repeatedly
+Things done multiple times suggesting a project-specific pattern:
+- Same type of file created the same way
 - Same approach applied to similar problems
 - Consistent structure followed across changes
 
-For each pattern, extract:
-- What the pattern is (with concrete examples from this session)
-- When it applies
-- What makes it project-specific (vs generic knowledge)
+Extract: pattern, when it applies, what makes it project-specific.
 
 ### Type D: New Knowledge
 Facts about the project learned during the session:
 - How custom tooling works
 - Business rules discovered in code
-- Relationships between modules not documented elsewhere
+- Relationships between modules
 - Environment setup requirements
 
 ## Step 2: Match to Configuration
 
-For each learning found, determine where it belongs:
+For each learning, determine where it belongs:
 
 | Learning Type | Target |
 |---|---|
@@ -66,77 +54,62 @@ For each learning found, determine where it belongs:
 | Pattern in new domain | Create new skill |
 | New knowledge about project | Update `.claude/docs/` |
 
-## Step 3: Present Proposals
+## Step 3: Present Summary
 
-Present EACH proposal one at a time. User accepts or rejects each individually.
+Present ALL learnings in a compact list first. NEVER dump full code or content upfront.
 
-### For updating an existing skill:
-
-```
-LEARN: Add gotcha to skill [skill-name]
-
-  From this session: [brief description of what happened]
-
-  Proposed addition to .claude/skills/[skill-name]/SKILL.md:
-  ---
-  [the exact text to add, in context of where it goes in the file]
-  ---
-
-  Apply? (Y/n)
-```
-
-### For creating a new skill:
+### Format:
 
 ```
-LEARN: Create new skill [skill-name]
+/cs:learn — N learnings found
 
-  From this session: [what triggered this, with examples]
+1. [skill-name]: [one-line description]
+   → [target file path] ([action: new gotcha / new entry / new skill])
 
-  Proposed .claude/skills/[skill-name]/SKILL.md:
-  ---
-  name: [name]
-  description: [description with auto-invocation keywords]
-  ---
+2. [skill-name]: [one-line description]
+   → [target file path] ([action])
 
-  [skill content with gotchas, patterns, examples from this session]
+3. ...
 
-  Create? (Y/n)
+Apply all? (a) | Select: 1,3 | Review one: r2 | Skip all: (n)
 ```
 
-### For updating CLAUDE.md:
+### User actions:
+
+- **`a`** — apply all learnings without review
+- **`1,3`** or **`1 3`** — apply only selected learnings
+- **`r2`** — review learning #2 in detail before deciding
+- **`n`** — skip all
+
+## Step 4: Review Detail (on `rN` request)
+
+When user asks to review a specific learning, show a compact preview:
 
 ```
-LEARN: Add lesson to CLAUDE.md
+N. [skill-name]: [one-line description]
+   → [target file path]
 
-  From this session: [what happened]
+   After: "[section name where it goes]"
 
-  Proposed addition to Lessons section:
-  ---
-  ## [Context]
-  **Trigger:** [what happened]
-  **Rule:** [what to do differently, as if/then]
-  **Example:** [concrete example]
-  ---
+   + ### [heading of new content]
+   + [2-3 sentence summary of what the gotcha/pattern says]
+   + [key rule or constraint in one line]
+   +
+   + [N lines of code]
 
-  Apply? (Y/n)
+   Show full code? (y) | Apply (a) | Skip (s)
 ```
 
-### For updating docs:
+Rules for review detail:
+- **"After:"** — show WHERE in the file the content goes (after which section/heading)
+- **Summary lines** — 2-3 sentences describing the learning, NOT the full text
+- **Code is collapsed** — show `[N lines of code]` count, expand only on `y`
+- **No session context** — do NOT include "From this session: ..." explanations
+- **Actions per learning** — show full code (y), apply (a), or skip (s)
 
-```
-LEARN: Update .claude/docs/[filename]
+## Step 5: Apply Changes
 
-  From this session: [what was discovered]
-
-  Proposed change:
-  ---
-  [the change]
-  ---
-
-  Apply? (Y/n)
-```
-
-## Rules
+When applying learnings:
 
 ### Skill creation MUST follow Anthropic standard:
 - Directory: `.claude/skills/[name]/`
@@ -156,17 +129,13 @@ LEARN: Update .claude/docs/[filename]
 - Skip learnings already captured in existing skills
 - Combine related learnings into a single proposal
 
-## Step 4: Summary
+## Step 6: Final Summary
 
 ```
-Learning complete:
-  Analyzed: X corrections, Y gotchas, Z patterns
-  Proposed: N changes
-  Applied: M changes
-  Skipped: K proposals
+/cs:learn complete
+  Found: N learnings (A corrections, B gotchas, C patterns, D knowledge)
+  Applied: M | Skipped: K
 
-  Skills updated: [list]
-  Skills created: [list]
-  CLAUDE.md: [updated/unchanged]
-  Docs: [updated/unchanged]
+  Updated: [file1], [file2]
+  Created: [file1]
 ```
