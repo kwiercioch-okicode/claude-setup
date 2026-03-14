@@ -45,6 +45,11 @@ ls -la CLAUDE.md 2>/dev/null
 - For each conflict, ask the user: "Your existing [X] vs my generated [X] - which to keep, or merge?"
 - Never overwrite without confirmation
 
+**If `.claude/` does not exist AND project has < 500 lines of code (from Step 1 output):**
+Fast-path: create skeleton `.claude/` structure, copy CLAUDE.md template, skip deep scan.
+Tell user: "Skeleton created. Work on your project first, then run `/cs:learn` after a session or `/cs:init` again when codebase grows."
+Skip to Step 7.
+
 **If `.claude/` does not exist:** Proceed with full generation.
 
 ## Step 3: CLAUDE.md Behavioral Framework
@@ -62,49 +67,25 @@ Read the template from `${CLAUDE_SKILL_DIR}/../templates/CLAUDE.md.template`.
 
 ## Step 4: Deep Scan with Parallel Agents
 
-Launch 4 agents IN PARALLEL. Each agent has a specific mission:
+Launch 2 agents IN PARALLEL. Each agent covers two scan dimensions to reduce redundant codebase reads:
 
-### Agent 1: "What is non-standard?"
-Search for anomalies, workarounds, and surprising patterns:
-- Comments containing TODO, HACK, FIXME, WORKAROUND, XXX
-- Unusual file structures or naming that deviates from framework conventions
-- Legacy code patterns mixed with modern ones
-- Custom abstractions that wrap standard library features
-- Configuration that overrides framework defaults
+### Agent 1: "Anomalies & Traps"
+Scan the codebase for non-standard patterns AND things that would trip up an AI agent. Single pass, two outputs:
 
-Output: list of anomalies with file paths and explanations.
+**Anomalies:** TODO/HACK/FIXME/WORKAROUND comments, unusual file structures, legacy patterns, custom abstractions, config overrides.
 
-### Agent 2: "What are the domain rules?"
-Search for business logic and domain knowledge:
-- Entity names, value objects, aggregates
-- Validation rules, state machines, workflows
-- Domain-specific terminology (especially where code names differ from user-facing names)
-- Business constraints encoded in code
-- Authorization rules and access patterns
+**Traps:** Implicit dependencies, magic values, custom tooling, environment-specific behavior, files that look standard but behave differently, test infrastructure requirements (Docker, databases).
 
-Output: domain model summary with rules and constraints.
+Output: list of anomalies + list of traps, each with file paths.
 
-### Agent 3: "What are the traps?"
-Search for things that would trip up an AI agent:
-- Implicit dependencies between modules
-- Magic values, hardcoded constants with non-obvious meaning
-- Custom tooling and build commands
-- Environment-specific behavior
-- Files that look standard but have custom behavior
-- Test setup that requires specific infrastructure (Docker, databases, external services)
+### Agent 2: "Domain Rules & Patterns"
+Scan the codebase for business logic AND recurring implementation patterns. Single pass, two outputs:
 
-Output: list of traps with severity and mitigation.
+**Domain:** Entities, validation rules, state machines, workflows, domain terminology, business constraints, authorization rules.
 
-### Agent 4: "What patterns repeat?"
-Search for recurring implementation patterns:
-- How handlers/controllers are structured
-- How components are organized
-- How tests are written (fixtures, assertions, mocking patterns)
-- How errors are handled
-- How data flows through the system
-- API endpoint patterns
+**Patterns:** Handler/controller structure, component organization, test patterns, error handling, data flow, API endpoint conventions.
 
-Output: list of patterns with 2-3 concrete examples each.
+Output: domain model summary + list of patterns with 2-3 examples each.
 
 ## Step 5: Ecosystem Check
 

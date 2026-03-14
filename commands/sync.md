@@ -25,20 +25,31 @@ cat CLAUDE.md 2>/dev/null
 
 Read each file to understand what the current configuration claims about the project.
 
-## Step 2: Diagnostics (Built-in Doctor)
+## Step 2a: Mechanical Checks (Script — no LLM needed)
 
-Launch parallel agents to check 6 dimensions:
+Run these checks directly with bash. They are pure file existence / pattern matching:
 
-### Agent A: Broken References
-For each skill and doc file, check:
-- File paths mentioned in skills - do they still exist?
-- Class/function names referenced - are they still in the code?
-- Configuration values cited - do they match current configs?
-- Commands documented - do they still work?
+### Broken References (was Agent A)
+```bash
+# Extract file paths from skills and docs, test if they exist
+grep -rn -oP '(?:src/|app/|lib/|tests?/|config/|\./)[\w/.-]+' .claude/skills/ .claude/docs/ 2>/dev/null | while IFS=: read -r source line path; do
+  [ ! -e "$path" ] && echo "BROKEN: $source:$line -> $path"
+done
+```
 
-Output: list of broken references with file and line.
+### Gotcha Validation (was Agent D)
+```bash
+# Check if workaround markers still exist in code
+grep -rn 'TODO\|HACK\|FIXME\|WORKAROUND\|XXX' --include='*.php' --include='*.ts' --include='*.js' --include='*.tsx' --include='*.jsx' . 2>/dev/null | grep -v node_modules | grep -v vendor
+```
 
-### Agent B: Drift Detection
+Compare against gotchas documented in skills. New markers not in any skill = undocumented gotcha. Markers referenced in skills but gone from code = obsolete gotcha.
+
+## Step 2b: Diagnostics (Parallel Agents)
+
+Launch 4 agents in parallel for checks requiring LLM judgment:
+
+### Agent A: Drift Detection
 Compare what skills describe vs what the code actually does:
 - Has the pattern described in a skill changed in the code?
 - Are there new modules/directories not covered by any skill?
@@ -47,7 +58,7 @@ Compare what skills describe vs what the code actually does:
 
 Output: list of drifts with before/after description.
 
-### Agent C: Quality Check
+### Agent B: Quality Check
 Evaluate skill quality against research-backed criteria:
 - Does the skill contain non-inferable information, or just generic knowledge?
 - Is the skill specific enough (concrete examples) or too vague ("best practices")?
@@ -62,15 +73,7 @@ Also check CLAUDE.md template completeness:
 
 Output: list of quality issues + missing CLAUDE.md sections with suggested additions.
 
-### Agent D: Gotcha Validation
-For each gotcha/workaround documented in skills:
-- Is the workaround still present in the code?
-- Has the underlying issue been fixed (making the gotcha obsolete)?
-- Are there new workarounds in the code not captured in any skill?
-
-Search for: TODO, HACK, FIXME, WORKAROUND, XXX comments that aren't in any skill.
-
-### Agent E: Review Completeness
+### Agent C: Review Completeness
 Check the review skill configuration:
 - Does `skills/review/SKILL.md` exist? If not, flag as MISSING.
 - Read template dimensions from `${CLAUDE_SKILL_DIR}/../templates/review-prompts/`
@@ -82,7 +85,7 @@ Check the review skill configuration:
 
 Output: list of obsolete gotchas + new undocumented gotchas.
 
-### Agent F: Ecosystem Check
+### Agent D: Ecosystem Check
 Check installed tools against the ecosystem registry:
 - Read registry from `${CLAUDE_SKILL_DIR}/../templates/ecosystem-registry.json`
 - Also check for project-local registry at `.claude/setup-registry.json`
@@ -95,29 +98,50 @@ Output: list of ecosystem suggestions (install/remove).
 
 ## Step 3: Present Proposals
 
-Combine all findings into a prioritized list. Present EACH proposal one at a time to the user for acceptance:
+Combine all findings into a prioritized list. Group by category and present in batches:
 
-### Format for each proposal:
+### Categories (in priority order):
+1. **BROKEN** - references to non-existent files/symbols
+2. **OUTDATED** - gotchas for issues that were fixed
+3. **DRIFT** - code changed but skill didn't follow
+4. **MISSING** - new code areas without skill coverage
+5. **QUALITY** - skill exists but is too generic or duplicated
+
+### Presentation format:
+
+First show the full summary:
+```
+/cs:sync — N proposals found
+
+BROKEN (2):
+  1. skill-name: path/to/file.php no longer exists
+  2. skill-name: ClassName was renamed to NewClassName
+
+DRIFT (1):
+  3. skill-name: handler pattern changed from X to Y
+
+MISSING (2):
+  4. new-module: no skill covers src/payments/
+  5. review: missing security dimension
+
+Auto-apply BROKEN fixes? (a) | Review all one-by-one (r) | Skip (n)
+```
+
+### Batch logic:
+- **BROKEN** — safe to auto-apply (just fixing references). Offer batch apply.
+- **OUTDATED** — safe to auto-apply (removing stale content). Offer batch apply.
+- **DRIFT, MISSING, QUALITY** — require judgment. Present one-by-one with context:
 
 ```
-[CATEGORY] description
+[3/5] DRIFT: skill-name
+  → .claude/skills/skill-name/SKILL.md
+  Handler pattern changed: was callback-based, now uses async/await.
+  Skill still documents callback pattern.
 
-  File: path/to/affected/skill.md
-  Issue: what's wrong
-  Proposed fix: what to change
-
-  Apply? (Y/n)
+  Apply (a) | Review code (r) | Skip (s)
 ```
 
-Categories (in priority order):
-1. **BROKEN** - references to non-existent files/symbols (fix immediately)
-2. **OUTDATED** - gotchas for issues that were fixed (remove or update)
-3. **DRIFT** - code changed but skill didn't follow (update skill)
-4. **MISSING** - new code areas without skill coverage (create skill)
-5. **QUALITY** - skill exists but is too generic or duplicated (improve)
-
-### Rules for proposals:
-- One proposal at a time, wait for user response
+### Rules:
 - If user rejects, move to next without arguing
 - Creating new skills MUST follow Anthropic standard (SKILL.md + frontmatter)
 - Editing existing skills uses Edit tool (targeted changes, not full rewrites)
