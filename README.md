@@ -1,8 +1,8 @@
 # claude-setup
 
-Auto-generate and maintain `.claude/` configuration from your codebase.
+Generate skills, review dimensions, and project context that make Claude actually understand YOUR codebase — not generic advice.
 
-Scans your project for **non-inferable details** - anomalies, domain rules, gotchas, and patterns that an AI agent can't discover by reading code alone - and generates tailored skills, agents, and review dimensions.
+Scans your project for gotchas, domain rules, and patterns, then generates tailored `.claude/` configuration. Learns from your sessions and keeps config in sync as code evolves.
 
 Based on [ETH Zurich research](https://www.infoq.com/news/2026/03/agents-context-file-value-review/) showing that generic context files degrade AI performance, while non-inferable details provide real value.
 
