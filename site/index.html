@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>devflow — Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2332;
+  --grid: #1a2332;
+  --accent: #00e87b;
+  --accent-dim: #00e87b33;
+  --accent-glow: #00e87b66;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --blue: #3b82f6;
+  --purple: #a78bfa;
+  --pink: #ec4899;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --text-muted: #475569;
+  --border: #1e293b;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  --font-display: 'Space Grotesk', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.4;
+  z-index: -2;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, var(--accent-dim) 0%, transparent 60%);
+  z-index: -1;
+}
+
+/* Header */
+.header {
+  padding: 3rem 2rem 2rem;
+  text-align: center;
+  position: relative;
+  animation: fadeDown 0.8s ease-out;
+}
+
+.header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--accent) 0%, #00b4d8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.header .tagline {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.header .version {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--accent-dim);
+  border-radius: 100px;
+  font-size: 0.7rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+/* Section */
+.section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-title::before {
+  content: '';
+  width: 3px;
+  height: 1.5rem;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.section-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 2rem;
+  padding-left: 1.5rem;
+}
+
+/* Architecture diagram */
+.arch-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2rem 0;
+}
+
+.arch-level {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.arch-node {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  min-width: 200px;
+  position: relative;
+  cursor: default;
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.arch-node.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.arch-node:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 30px var(--accent-dim);
+  transform: translateY(-2px);
+}
+
+.arch-node .node-type {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.arch-node .node-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.arch-node .node-detail {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 0.5rem;
+  line-height: 1.5;
+}
+
+.arch-node.marketplace { border-color: var(--accent-dim); }
+.arch-node.marketplace .node-name { color: var(--accent); }
+
+.arch-node.plugin-df { border-color: #3b82f633; }
+.arch-node.plugin-df .node-name { color: var(--blue); }
+
+.arch-node.plugin-cs { border-color: #a78bfa33; }
+.arch-node.plugin-cs .node-name { color: var(--purple); }
+
+/* SVG connectors */
+.connectors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.connector-line {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  fill: none;
+  opacity: 0.3;
+  stroke-dasharray: 6 4;
+  animation: dashFlow 20s linear infinite;
+}
+
+@keyframes dashFlow {
+  to { stroke-dashoffset: -200; }
+}
+
+/* Pipeline flow */
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: 2rem 0;
+  position: relative;
+}
+
+.pipeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+  position: relative;
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.pipeline-step.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.step-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  border: 2px solid var(--border);
+  background: var(--bg-card);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.pipeline-step:hover .step-icon {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-dim), inset 0 0 20px var(--accent-dim);
+  transform: scale(1.1);
+}
+
+.step-label {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+  text-align: center;
+}
+
+.step-cmd {
+  font-size: 0.6rem;
+  color: var(--accent);
+  margin-top: 0.25rem;
+}
+
+.step-arrow {
+  flex-shrink: 0;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent), var(--accent-dim));
+  position: relative;
+  opacity: 0;
+}
+
+.step-arrow.visible { opacity: 1; }
+
+.step-arrow::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid var(--accent);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+
+/* Animated pulse on arrow */
+.step-arrow::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: 12px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 3px;
+  animation: flowPulse 2s ease-in-out infinite;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+@keyframes flowPulse {
+  0% { left: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { left: calc(100% - 12px); opacity: 0; }
+}
+
+/* Guardrails */
+.guardrails {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.guardrail-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.3s ease;
+}
+
+.guardrail-card.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.guardrail-card:hover {
+  border-color: var(--danger);
+  box-shadow: 0 0 20px #ef444422;
+}
+
+.guardrail-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+}
+
+.guardrail-card.deterministic::before { background: var(--danger); }
+.guardrail-card.injection::before { background: var(--warn); }
+.guardrail-card.gate::before { background: var(--pink); }
+
+.guardrail-type {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.5rem;
+}
+
+.guardrail-card.deterministic .guardrail-type { color: var(--danger); }
+.guardrail-card.injection .guardrail-type { color: var(--warn); }
+.guardrail-card.gate .guardrail-type { color: var(--pink); }
+
+.guardrail-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.guardrail-desc {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.guardrail-event {
+  margin-top: 0.5rem;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  padding: 0.25rem 0.5rem;
+  background: #0a0e17;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Prepare script pattern */
+.pattern-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 2rem 0;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pattern-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  min-width: 200px;
+  max-width: 280px;
+  flex: 1;
+  position: relative;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.pattern-box.visible { opacity: 1; }
+
+.pattern-box:first-child { border-radius: 8px 0 0 8px; }
+.pattern-box:last-child { border-radius: 0 8px 8px 0; }
+
+.pattern-box:hover {
+  background: var(--bg-card-hover);
+  z-index: 1;
+}
+
+.pattern-box .box-num {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-dim);
+  font-family: var(--font-display);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.pattern-box .box-title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.pattern-box .box-detail {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.pattern-connector {
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* Stats bar */
+.stats {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  padding: 2rem;
+  flex-wrap: wrap;
+  animation: fadeUp 0.8s ease-out 0.3s both;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-num {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 0.25rem;
+}
+
+/* Command list */
+.cmd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.cmd-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.cmd-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cmd-item:hover {
+  border-color: var(--accent-dim);
+  background: var(--bg-card-hover);
+}
+
+.cmd-item .cmd-icon { font-size: 1rem; }
+.cmd-item .cmd-name { color: var(--accent); font-weight: 500; }
+.cmd-item .cmd-desc { color: var(--text-dim); font-size: 0.7rem; }
+
+/* Install block */
+.install {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 600px;
+  margin: 2rem auto;
+  text-align: center;
+}
+
+.install code {
+  display: block;
+  background: #0a0e17;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin: 0.75rem 0;
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-align: left;
+  border: 1px solid var(--border);
+}
+
+.install .install-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 3rem 2rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Animations */
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pipeline { flex-direction: column; align-items: center; }
+  .step-arrow {
+    width: 2px;
+    height: 30px;
+    background: linear-gradient(180deg, var(--accent-dim), var(--accent), var(--accent-dim));
+  }
+  .step-arrow::after {
+    right: auto;
+    top: auto;
+    bottom: -4px;
+    left: -4px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid var(--accent);
+  }
+  .step-arrow::before {
+    animation-name: flowPulseV;
+    width: 6px;
+    height: 12px;
+    top: 0;
+    left: -2px;
+  }
+  @keyframes flowPulseV {
+    0% { top: 0; opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { top: calc(100% - 12px); opacity: 0; }
+  }
+  .pattern-flow { flex-direction: column; }
+  .pattern-connector { width: auto; height: 30px; }
+  .pattern-box { max-width: 100%; border-radius: 8px !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <h1>devflow</h1>
+  <p class="tagline">SDLC automation for Claude Code</p>
+  <span class="version">v0.1.0 — marketplace</span>
+</header>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat"><div class="stat-num">10</div><div class="stat-label">Commands</div></div>
+  <div class="stat"><div class="stat-num">7</div><div class="stat-label">Prepare Scripts</div></div>
+  <div class="stat"><div class="stat-num">3</div><div class="stat-label">Guard Hooks</div></div>
+  <div class="stat"><div class="stat-num">2</div><div class="stat-label">Plugins</div></div>
+  <div class="stat"><div class="stat-num">0</div><div class="stat-label">npm deps</div></div>
+</div>
+
+<!-- Architecture -->
+<section class="section">
+  <h2 class="section-title">Architecture</h2>
+  <p class="section-subtitle">One marketplace, two plugins, zero coupling between them</p>
+
+  <div class="arch-container">
+    <!-- Marketplace level -->
+    <div class="arch-level">
+      <div class="arch-node marketplace" data-reveal>
+        <div class="node-type">Marketplace</div>
+        <div class="node-name">devflow</div>
+        <div class="node-detail">kwiercioch-okicode/devflow<br>Entry point for plugin discovery</div>
+      </div>
+    </div>
+
+    <!-- Plugin level -->
+    <div class="arch-level">
+      <div class="arch-node plugin-df" data-reveal data-delay="200">
+        <div class="node-type">Plugin — df</div>
+        <div class="node-name">SDLC Workflow</div>
+        <div class="node-detail">10 commands · 7 scripts · 3 hooks<br>plan → execute → commit → review → ship</div>
+      </div>
+      <div class="arch-node plugin-cs" data-reveal data-delay="400">
+        <div class="node-type">Plugin — cs</div>
+        <div class="node-name">Config Setup</div>
+        <div class="node-detail">3 commands · scanner · compositor<br>Generate & maintain .claude/ config</div>
+      </div>
+    </div>
+
+    <!-- Components level -->
+    <div class="arch-level">
+      <div class="arch-node" data-reveal data-delay="500" style="min-width: 150px;">
+        <div class="node-type">Layer</div>
+        <div class="node-name" style="font-size: 0.9rem;">Commands</div>
+        <div class="node-detail">/df:* entry points<br>Thin dispatchers</div>
+      </div>
+      <div class="arch-node" data-reveal data-delay="600" style="min-width: 150px;">
+        <div class="node-type">Layer</div>
+        <div class="node-name" style="font-size: 0.9rem;">Scripts</div>
+        <div class="node-detail">JS prepare scripts<br>Pre-compute → JSON</div>
+      </div>
+      <div class="arch-node" data-reveal data-delay="700" style="min-width: 150px;">
+        <div class="node-type">Layer</div>
+        <div class="node-name" style="font-size: 0.9rem;">Hooks</div>
+        <div class="node-detail">Deterministic guards<br>Zero LLM involvement</div>
+      </div>
+      <div class="arch-node" data-reveal data-delay="800" style="min-width: 150px;">
+        <div class="node-type">Layer</div>
+        <div class="node-name" style="font-size: 0.9rem;">Shared Lib</div>
+        <div class="node-detail">git.js · discovery.js<br>Node built-ins only</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Ship Pipeline -->
+<section class="section">
+  <h2 class="section-title">Ship Pipeline</h2>
+  <p class="section-subtitle">End-to-end flow from plan to pull request — /df:ship orchestrates the chain</p>
+
+  <div class="pipeline" id="pipeline">
+    <div class="pipeline-step" data-reveal>
+      <div class="step-icon">📋</div>
+      <div class="step-label">Plan</div>
+      <div class="step-cmd">/df:plan</div>
+    </div>
+    <div class="step-arrow" data-reveal data-delay="100"></div>
+
+    <div class="pipeline-step" data-reveal data-delay="150">
+      <div class="step-icon">⚡</div>
+      <div class="step-label">Execute</div>
+      <div class="step-cmd">/df:execute</div>
+    </div>
+    <div class="step-arrow" data-reveal data-delay="250"></div>
+
+    <div class="pipeline-step" data-reveal data-delay="300">
+      <div class="step-icon">💾</div>
+      <div class="step-label">Commit</div>
+      <div class="step-cmd">/df:commit</div>
+    </div>
+    <div class="step-arrow" data-reveal data-delay="400"></div>
+
+    <div class="pipeline-step" data-reveal data-delay="450">
+      <div class="step-icon">🔍</div>
+      <div class="step-label">Review</div>
+      <div class="step-cmd">/df:review</div>
+    </div>
+    <div class="step-arrow" data-reveal data-delay="550"></div>
+
+    <div class="pipeline-step" data-reveal data-delay="600">
+      <div class="step-icon" style="border-color: var(--pink);">⛔</div>
+      <div class="step-label" style="color: var(--pink);">Verdict Gate</div>
+      <div class="step-cmd" style="color: var(--pink);">.devflow/verdict.json</div>
+    </div>
+    <div class="step-arrow" data-reveal data-delay="700"></div>
+
+    <div class="pipeline-step" data-reveal data-delay="750">
+      <div class="step-icon">🚀</div>
+      <div class="step-label">Pull Request</div>
+      <div class="step-cmd">/df:pr</div>
+    </div>
+  </div>
+</section>
+
+<!-- Prepare Script Pattern -->
+<section class="section">
+  <h2 class="section-title">Prepare Script Pattern</h2>
+  <p class="section-subtitle">LLM never parses raw git output — scripts pre-compute everything into JSON</p>
+
+  <div class="pattern-flow">
+    <div class="pattern-box" data-reveal>
+      <div class="box-num">01</div>
+      <div class="box-title">Command invoked</div>
+      <div class="box-detail">User calls /df:review<br>Command locates prepare script<br>in ~/.claude/plugins/</div>
+    </div>
+    <div class="pattern-connector" data-reveal data-delay="100">→</div>
+    <div class="pattern-box" data-reveal data-delay="200">
+      <div class="box-num">02</div>
+      <div class="box-title">Script executes</div>
+      <div class="box-detail">review-prepare.js runs<br>Parses git diff, discovers<br>dimensions, maps files</div>
+    </div>
+    <div class="pattern-connector" data-reveal data-delay="300">→</div>
+    <div class="pattern-box" data-reveal data-delay="400">
+      <div class="box-num">03</div>
+      <div class="box-title">JSON output</div>
+      <div class="box-detail">Structured manifest written<br>to temp file. Changed files,<br>hunks, dimension assignments</div>
+    </div>
+    <div class="pattern-connector" data-reveal data-delay="500">→</div>
+    <div class="pattern-box" data-reveal data-delay="600">
+      <div class="box-num">04</div>
+      <div class="box-title">LLM consumes</div>
+      <div class="box-detail">Reads clean JSON. No parsing.<br>No hallucinated git data.<br>Deterministic foundation.</div>
+    </div>
+  </div>
+</section>
+
+<!-- Guardrails -->
+<section class="section">
+  <h2 class="section-title">Guardrails</h2>
+  <p class="section-subtitle">Deterministic hooks enforce rules without relying on LLM memory</p>
+
+  <div class="guardrails">
+    <div class="guardrail-card deterministic" data-reveal>
+      <div class="guardrail-type">Deterministic Hook</div>
+      <div class="guardrail-name">Branch Protection</div>
+      <div class="guardrail-desc">Blocks git commit, push, and merge on protected branches (main, master, staging)</div>
+      <div class="guardrail-event">PreToolUse:Bash → branch-guard.js</div>
+    </div>
+
+    <div class="guardrail-card deterministic" data-reveal data-delay="100">
+      <div class="guardrail-type">Deterministic Hook</div>
+      <div class="guardrail-name">Session Guard</div>
+      <div class="guardrail-desc">Detects active worktrees at session start, injects context warning into conversation</div>
+      <div class="guardrail-event">SessionStart → session-guard.js</div>
+    </div>
+
+    <div class="guardrail-card gate" data-reveal data-delay="200">
+      <div class="guardrail-type">Mandatory Gate</div>
+      <div class="guardrail-name">Review Gate</div>
+      <div class="guardrail-desc">Blocks PR creation unless .devflow/review-verdict.json exists and has no critical/high findings</div>
+      <div class="guardrail-event">PreToolUse:Bash → review-gate.js</div>
+    </div>
+
+    <div class="guardrail-card injection" data-reveal data-delay="300">
+      <div class="guardrail-type">Context Injection</div>
+      <div class="guardrail-name">Worktree Warning</div>
+      <div class="guardrail-desc">When worktrees are active, injects reminder to work in .worktrees/ directory, not on main branch</div>
+      <div class="guardrail-event">SessionStart → stdout message</div>
+    </div>
+
+    <div class="guardrail-card gate" data-reveal data-delay="400">
+      <div class="guardrail-type">Skill Chain Gate</div>
+      <div class="guardrail-name">Verdict Bridge</div>
+      <div class="guardrail-desc">Review writes verdict JSON → ship reads it. Bridges non-deterministic review with deterministic hook gate</div>
+      <div class="guardrail-event">/df:review → .devflow/ → /df:ship</div>
+    </div>
+
+    <div class="guardrail-card deterministic" data-reveal data-delay="500">
+      <div class="guardrail-type">Health Check</div>
+      <div class="guardrail-name">/df:doctor</div>
+      <div class="guardrail-desc">Verifies all hooks installed, dimensions discovered, verdict gates working. 11 checks, zero LLM.</div>
+      <div class="guardrail-event">doctor.js → JSON report</div>
+    </div>
+  </div>
+</section>
+
+<!-- All Commands -->
+<section class="section">
+  <h2 class="section-title">Commands</h2>
+  <p class="section-subtitle">df: plugin — SDLC workflow &nbsp;|&nbsp; cs: plugin — config generation</p>
+
+  <div class="cmd-grid">
+    <div class="cmd-item" data-reveal><span class="cmd-icon">🌿</span><div><div class="cmd-name">/df:worktree</div><div class="cmd-desc">Create & manage worktrees</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="50"><span class="cmd-icon">📋</span><div><div class="cmd-name">/df:plan</div><div class="cmd-desc">Structured implementation plan</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="100"><span class="cmd-icon">⚡</span><div><div class="cmd-name">/df:execute</div><div class="cmd-desc">Wave-based plan execution</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="150"><span class="cmd-icon">💾</span><div><div class="cmd-name">/df:commit</div><div class="cmd-desc">Smart commit + style detection</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="200"><span class="cmd-icon">🔍</span><div><div class="cmd-name">/df:review</div><div class="cmd-desc">Multi-dimension code review</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="250"><span class="cmd-icon">🚀</span><div><div class="cmd-name">/df:pr</div><div class="cmd-desc">Auto PR description</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="300"><span class="cmd-icon">🏷️</span><div><div class="cmd-name">/df:version</div><div class="cmd-desc">Semver + changelog</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="350"><span class="cmd-icon">📦</span><div><div class="cmd-name">/df:ship</div><div class="cmd-desc">End-to-end pipeline</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="400"><span class="cmd-icon">🧪</span><div><div class="cmd-name">/df:test-first</div><div class="cmd-desc">TDD workflow enforcement</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="450"><span class="cmd-icon">🩺</span><div><div class="cmd-name">/df:doctor</div><div class="cmd-desc">Guardrails health check</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="500" style="border-color: #a78bfa33;"><span class="cmd-icon">🔧</span><div><div class="cmd-name" style="color: var(--purple);">/cs:init</div><div class="cmd-desc">Generate .claude/ config</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="550" style="border-color: #a78bfa33;"><span class="cmd-icon">🔄</span><div><div class="cmd-name" style="color: var(--purple);">/cs:sync</div><div class="cmd-desc">Sync config with codebase</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="600" style="border-color: #a78bfa33;"><span class="cmd-icon">🏥</span><div><div class="cmd-name" style="color: var(--purple);">/cs:doctor</div><div class="cmd-desc">Diagnose .claude/ health</div></div></div>
+  </div>
+</section>
+
+<!-- Install -->
+<section class="section">
+  <div class="install" data-reveal>
+    <div class="install-label">Install</div>
+    <code>/plugin marketplace add kwiercioch-okicode/devflow</code>
+    <code>/plugin install df@devflow</code>
+    <code>/plugin install cs@devflow</code>
+  </div>
+</section>
+
+<footer class="footer">
+  Built for <a href="https://github.com/kwiercioch-okicode/devflow">devflow</a> — Claude Code plugin marketplace
+</footer>
+
+<script>
+// Intersection Observer for scroll-triggered animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const delay = parseInt(entry.target.dataset.delay || '0');
+      setTimeout(() => {
+        entry.target.classList.add('visible');
+      }, delay);
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+document.querySelectorAll('[data-reveal]').forEach(el => {
+  observer.observe(el);
+});
+</script>
+
+</body>
+</html>
