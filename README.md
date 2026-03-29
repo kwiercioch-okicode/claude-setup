@@ -1,194 +1,64 @@
-# claude-setup
+# devflow
 
-Generate skills, review dimensions, and project context that make Claude actually understand YOUR codebase — not generic advice.
+Claude Code plugin marketplace for SDLC automation and project configuration.
 
-Scans your project for gotchas, domain rules, and patterns, then generates tailored `.claude/` configuration. Learns from your sessions and keeps config in sync as code evolves.
+Two plugins in one marketplace:
 
-Based on [ETH Zurich research](https://www.infoq.com/news/2026/03/agents-context-file-value-review/) showing that generic context files degrade AI performance, while non-inferable details provide real value.
+- **devflow** - SDLC workflow: plan, execute, commit, review, PR, version, ship. With guardrail hooks and worktree management.
+- **setup** - Generate and maintain `.claude/` configuration from codebase analysis.
 
 ## Installation
 
 ### Via Claude Code UI
 
-1. Launch Claude Code and run `/plugin`
-2. Go to **Marketplaces → Add marketplace**
-3. Enter `kwiercioch-okicode/claude-setup`
-4. Go to **Discover**, select **claude-setup**, then **Install**
+1. Open Claude Code and run `/plugin`
+2. Go to **Marketplaces** -> **Add marketplace** -> enter `kwiercioch-okicode/devflow`
+3. Go to **Discover**, select the plugin you want, then **Install**
 
 ### Command line
 
 ```
-/plugin marketplace add kwiercioch-okicode/claude-setup
-/plugin install claude-setup@claude-setup
+/plugin marketplace add kwiercioch-okicode/devflow
+/plugin install devflow@devflow
+/plugin install setup@devflow
 ```
 
-## Commands
+## devflow plugin
 
-### `/cs:init`
-
-Generate complete `.claude/` configuration from codebase analysis.
-
-```bash
-/cs:init              # current directory
-/cs:init ./my-project # specific path
-```
-
-**What it generates:**
-- `CLAUDE.md` - behavioral decision framework (template-based)
-- `.claude/docs/` - project context, domain model, tooling
-- `.claude/skills/` - domain-specific skills with gotchas and patterns
-- `.claude/agents/` - specialized agents (if needed)
-- `.claude/skills/review/` - multi-dimension code review tailored to your stack
-
-**What it does NOT generate:**
-- Repository structure descriptions (agent discovers these)
-- Tech stack overviews (agent reads config files)
-- Generic best practices (agent already knows them)
-
-**If `.claude/` already exists:** merges intelligently, proposing each change for your approval.
-
-### `/cs:sync`
-
-Synchronize configuration with current codebase state.
-
-```bash
-/cs:sync
-```
-
-Runs diagnostics (built-in doctor) and proposes targeted fixes:
-- **Broken references** - skills referencing deleted files/symbols
-- **Outdated gotchas** - workarounds for issues that were fixed
-- **Drift** - code changed but skills didn't follow
-- **Missing coverage** - new modules without skills
-- **Quality issues** - skills that are too generic or duplicated
-
-Each proposal presented one at a time for your approval. Stateless - no cache or sync state files.
-
-### `/cs:doctor`
-
-Diagnose installation, configuration, and ecosystem.
-
-```bash
-/cs:doctor
-```
-
-```
-claude-setup doctor
-
-  Plugin: v0.3.0 (installed) ✓
-  Templates: 9/9 ✓
-  Stack detector: PASS (node v22.x)
-
-  Project (.claude/):
-    CLAUDE.md: PASS
-    Skills: 5 found, 0 invalid
-    Review: 6/6 base dimensions
-    Broken refs: 0
-
-  Ecosystem:
-    Installed: superpowers, gh, context7
-    Suggested: playwright-mcp - has frontend
-    Not relevant: atlassian - no JIRA refs
-
-  Runtime:
-    Node: v22.x
-    Claude Code: v1.x
-    OS: darwin
-```
-
-### `/cs:learn`
-
-Learn from the current conversation session.
-
-```bash
-/cs:learn
-```
-
-Analyzes the session for:
-- **Corrections** - things the user told you to do differently
-- **Gotchas** - bugs caused by missing context
-- **Patterns** - recurring approaches that worked
-- **New knowledge** - facts about the project discovered during work
-
-Proposes updates to skills, CLAUDE.md, and docs. Each change requires your approval.
-
-## Generated Review
-
-`/cs:init` creates a `/review` skill with 6 base dimensions:
-
-| Dimension | What it checks |
+| Skill | Description |
 |---|---|
-| security | Vulnerabilities adapted to your stack |
-| tests | Coverage and quality for your test framework |
-| architecture | Structural issues for your framework |
-| performance | Bottlenecks specific to your stack |
-| naming | Consistency with your project's conventions |
-| error-handling | Missing/incorrect error handling patterns |
+| `/dev` | Worktree management (create, remove, up, down, status) |
+| `/plan` | Generate structured implementation plan from any input |
+| `/execute` | Wave-based plan execution with dependency tracking |
+| `/commit` | Smart commit with style detection |
+| `/review` | Multi-dimension code review with prepare scripts |
+| `/pr` | Auto-generated PR description |
+| `/version` | Semantic versioning + changelog |
+| `/ship` | Thin orchestrator: commit -> review -> PR |
+| `/test-first` | TDD workflow enforcement |
+| `/doctor` | Guardrails health check |
 
-```bash
-/review                    # review current branch changes
-/review do staging         # compare against specific branch
-/review last 3 commits     # natural language scope
-```
+### Guardrails
 
-Output: consolidated report with severity table and verdict.
+Deterministic hooks that enforce workflow rules without relying on LLM behavior:
 
-Add custom dimensions by creating files in `.claude/skills/review/prompts/`.
+- **Branch protection** - blocks commits/pushes to main/master
+- **Worktree guard** - detects active worktrees, injects context
+- **Review gate** - blocks PR creation without review verdict
+- **Secret detection** - scans staged files for credentials
 
-## Ecosystem Detection
+### Prepare Scripts
 
-During `/cs:init`, the plugin detects installed tools and suggests missing ones:
+Every skill that touches git has a JS prepare script that pre-computes data and returns JSON. The LLM never parses raw git output - scripts do the dirty work. Zero npm dependencies.
 
-```
- Installed: superpowers, playwright MCP
- Suggested: context7 (you have React+PHP, useful for library docs)
- Suggested: atlassian MCP (detected JIRA ticket IDs in commits)
+## setup plugin
 
-Install context7? (Y/n)
-```
+| Command | Description |
+|---|---|
+| `/cs:init` | Generate `.claude/` configuration from codebase |
+| `/cs:sync` | Synchronize config with current codebase state |
+| `/cs:doctor` | Diagnose `.claude/` configuration health |
 
-Extend the registry with `.claude/setup-registry.json`:
+## Design
 
-```json
-[
-  {
-    "name": "custom-mcp",
-    "category": "Integrations",
-    "detect": "grep -q 'custom-mcp' ~/.claude/settings.json",
-    "suggest_when": "always",
-    "install": "claude mcp add custom-mcp -- npx custom-mcp"
-  }
-]
-```
-
-## Architecture
-
-```
-/cs:init
-  |
-  +- [script] detect-stack.js (zero deps, reads config files)
-  |
-  +- [parallel agents] Deep scan (anomalies, domain, traps, patterns)
-  |
-  +- [agent] Ecosystem check
-  |
-  +- [agent] Compositor (combines findings into skills, docs, review)
-  |
-  +- [output] Summary + suggestions for manual additions
-```
-
-- Zero external dependencies (scripts use Node.js built-ins only)
-- Intelligence lives in prompts, not scripts
-- Scripts handle mechanical work only (file listing, JSON parsing)
-
-## Philosophy
-
-- **Non-inferable only** - don't tell AI what it can discover from code
-- **Quality over quantity** - 3 excellent skills > 10 generic ones
-- **User in control** - every change requires approval
-- **Stateless sync** - no cache files, no state tracking
-- **Simple over complete** - 4 commands, not 10
-
-## License
-
-MIT
+See [design document](docs/plans/2026-03-29-devflow-plugin-design.md) for architecture decisions, skill details, and phased delivery plan.

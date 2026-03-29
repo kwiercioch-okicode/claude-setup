@@ -1,14 +1,18 @@
 {
-  "name": "claude-setup",
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "devflow",
+  "description": "SDLC automation and project configuration for Claude Code. Ship pipeline, code review, smart commits, worktree management, and .claude/ config generation.",
   "owner": {
     "name": "kwiercioch-okicode"
   },
   "plugins": [
     {
+      "name": "df",
+      "source": "./plugins/devflow"
+    },
+    {
       "name": "cs",
-      "source": "./",
-      "description": "Generate skills, review dimensions, and project context that make Claude actually understand YOUR codebase — not generic advice.",
-      "version": "0.6.0"
+      "source": "./plugins/setup"
     }
   ]
 }

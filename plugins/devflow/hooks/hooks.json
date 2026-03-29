@@ -1,0 +1,17 @@
+{
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "type": "command",
+      "command": "node \"${PLUGIN_DIR}/scripts/lib/session-guard.js\"",
+      "description": "Detect active worktrees and inject context"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "type": "command",
+      "command": "node \"${PLUGIN_DIR}/scripts/lib/branch-guard.js\"",
+      "description": "Block commits and pushes to main/master"
+    }
+  ]
+}
