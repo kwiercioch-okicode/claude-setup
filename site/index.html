@@ -402,6 +402,25 @@ body::after {
 .badge-plugin { background: #00e87b1a; color: var(--accent); border: 1px solid var(--accent-dim); }
 .badge-project { background: #a78bfa1a; color: var(--purple); border: 1px solid #a78bfa33; }
 
+.enforcement-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 100px;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  margin-right: 0.35rem;
+}
+.badge-hook { background: #ef44441a; color: var(--danger); border: 1px solid #ef444433; }
+.badge-skill { background: #3b82f61a; color: var(--blue); border: 1px solid #3b82f633; }
+
+.guardrail-badges {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .guardrail-name {
   font-family: var(--font-display);
   font-weight: 600;
@@ -971,118 +990,85 @@ body::after {
 <!-- Guardrails -->
 <section class="section">
   <h2 class="section-title">Guardrails</h2>
-  <p class="section-subtitle">Three layers of protection - deterministic hooks, portable process rules from plugin, and project-specific domain rules</p>
+  <p class="section-subtitle">Each guardrail has an enforcement mechanism and a source - click any card for details</p>
 
-  <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--danger); margin-bottom: 1rem; padding-left: 1.5rem;">
-    Deterministic <span class="source-badge badge-plugin">df plugin</span>
-    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 300;">- hooks that always fire, zero LLM involvement</span>
-  </h3>
   <div class="guardrails">
     <div class="guardrail-card deterministic" data-reveal data-guard="branch-guard">
-      <div class="guardrail-type">Deterministic Hook</div>
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="source-badge badge-plugin">plugin</span></div>
       <div class="guardrail-name">Branch Protection</div>
       <div class="guardrail-desc">Blocks git commit, push, and merge on protected branches (main, master, staging)</div>
-      <div class="guardrail-event">PreToolUse:Bash → branch-guard.js</div>
     </div>
 
-    <div class="guardrail-card deterministic" data-reveal data-delay="100" data-guard="session-guard">
-      <div class="guardrail-type">Deterministic Hook</div>
-      <div class="guardrail-name">Session Guard</div>
-      <div class="guardrail-desc">Detects active worktrees at session start, injects context warning into conversation</div>
-      <div class="guardrail-event">SessionStart → session-guard.js</div>
+    <div class="guardrail-card deterministic" data-reveal data-delay="50" data-guard="session-guard">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">Worktree Guard</div>
+      <div class="guardrail-desc">Detects active worktrees at session start, injects warning to work in .worktrees/ directory</div>
     </div>
 
-    <div class="guardrail-card gate" data-reveal data-delay="200" data-guard="review-gate">
-      <div class="guardrail-type">Mandatory Gate</div>
+    <div class="guardrail-card gate" data-reveal data-delay="100" data-guard="review-gate">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="source-badge badge-plugin">plugin</span></div>
       <div class="guardrail-name">Review Gate</div>
-      <div class="guardrail-desc">Blocks PR creation unless .devflow/review-verdict.json exists and has no critical/high findings</div>
-      <div class="guardrail-event">PreToolUse:Bash → review-gate.js</div>
+      <div class="guardrail-desc">Blocks PR creation unless review verdict exists and has no critical/high findings</div>
     </div>
 
-    <div class="guardrail-card injection" data-reveal data-delay="300" data-guard="worktree-warning">
-      <div class="guardrail-type">Context Injection</div>
-      <div class="guardrail-name">Worktree Warning</div>
-      <div class="guardrail-desc">When worktrees are active, injects reminder to work in .worktrees/ directory, not on main branch</div>
-      <div class="guardrail-event">SessionStart → stdout message</div>
-    </div>
-
-    <div class="guardrail-card gate" data-reveal data-delay="400" data-guard="verdict-bridge">
-      <div class="guardrail-type">Skill Chain Gate</div>
+    <div class="guardrail-card gate" data-reveal data-delay="150" data-guard="verdict-bridge">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
       <div class="guardrail-name">Verdict Bridge</div>
-      <div class="guardrail-desc">Review writes verdict JSON → ship reads it. Bridges non-deterministic review with deterministic hook gate</div>
-      <div class="guardrail-event">/df:review → .devflow/ → /df:ship</div>
+      <div class="guardrail-desc">Review writes verdict JSON, hook reads it before PR. Bridges LLM review with deterministic gate.</div>
+    </div>
+
+    <div class="guardrail-card injection" data-reveal data-delay="200" data-guard="test-first-guard">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">Test First</div>
+      <div class="guardrail-desc">Hook reminds on production file edit. Skill defines the TDD workflow: failing test before code.</div>
+    </div>
+
+    <div class="guardrail-card injection" data-reveal data-delay="250" data-guard="openspec-guard">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">OpenSpec Check</div>
+      <div class="guardrail-desc">Reminds to create proposal when editing production code without active OpenSpec change.</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="300" data-guard="nd-brainstorming">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">Brainstorming First</div>
+      <div class="guardrail-desc">Creative work must start with exploration: clarify intent, explore approaches, design before code.</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="350" data-guard="nd-drift-check">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">Drift Check</div>
+      <div class="guardrail-desc">After 3+ autonomous steps, re-read original request. Stop if scope shifted.</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="400" data-guard="nd-self-review">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">Self-Review</div>
+      <div class="guardrail-desc">Re-read every changed file before done. Check for debug code, hardcoded values, edge cases.</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="450" data-guard="nd-stop-ask">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">Stop and Ask</div>
+      <div class="guardrail-desc">Stop on: ambiguous requirements, API/schema changes, 2 failed approaches, scope growth.</div>
     </div>
 
     <div class="guardrail-card deterministic" data-reveal data-delay="500" data-guard="doctor">
-      <div class="guardrail-type">Health Check</div>
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="source-badge badge-plugin">plugin</span></div>
       <div class="guardrail-name">/df:doctor</div>
-      <div class="guardrail-desc">Verifies all hooks installed, dimensions discovered, verdict gates working. 11 checks, zero LLM.</div>
-      <div class="guardrail-event">doctor.js → JSON report</div>
+      <div class="guardrail-desc">Verifies all guardrails are working. 11 checks, zero LLM.</div>
     </div>
 
-    <div class="guardrail-card injection" data-reveal data-delay="600" data-guard="test-first-guard">
-      <div class="guardrail-type">Context Injection</div>
-      <div class="guardrail-name">Test-First Reminder</div>
-      <div class="guardrail-desc">Reminds to write a failing test before editing production code. Silent for test files, config, and CSS.</div>
-      <div class="guardrail-event">PreToolUse:Edit|Write → test-first-guard.js</div>
-    </div>
-
-    <div class="guardrail-card injection" data-reveal data-delay="700" data-guard="openspec-guard">
-      <div class="guardrail-type">Context Injection</div>
-      <div class="guardrail-name">OpenSpec Reminder</div>
-      <div class="guardrail-desc">Reminds to create an OpenSpec proposal when editing production code without an active proposal in openspec/changes/.</div>
-      <div class="guardrail-event">PreToolUse:Edit|Write → openspec-guard.js</div>
-    </div>
-  </div>
-
-  <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--accent); margin: 2rem 0 1rem; padding-left: 1.5rem;">
-    Process Rules <span class="source-badge badge-plugin">df plugin</span>
-    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 300;">- portable, every project gets these</span>
-  </h3>
-  <div class="guardrails">
-    <div class="guardrail-card nondeterministic" data-reveal data-guard="nd-brainstorming" style="border-color: #00e87b22;">
-      <div class="guardrail-type" style="color: var(--accent);">Process Rule (plugin)</div>
-      <div class="guardrail-name">Brainstorming Before Creative Work</div>
-      <div class="guardrail-desc">New features, UI, behavior changes must start with exploration before implementation.</div>
-      <div class="guardrail-event">process-rules skill → auto-loaded</div>
-    </div>
-    <div class="guardrail-card nondeterministic" data-reveal data-delay="100" data-guard="nd-drift-check" style="border-color: #00e87b22;">
-      <div class="guardrail-type" style="color: var(--accent);">Process Rule (plugin)</div>
-      <div class="guardrail-name">Drift Check</div>
-      <div class="guardrail-desc">After 3+ autonomous steps, pause and re-read original request. Stop if scope shifted.</div>
-      <div class="guardrail-event">process-rules skill → auto-loaded</div>
-    </div>
-    <div class="guardrail-card nondeterministic" data-reveal data-delay="200" data-guard="nd-self-review" style="border-color: #00e87b22;">
-      <div class="guardrail-type" style="color: var(--accent);">Process Rule (plugin)</div>
-      <div class="guardrail-name">Self-Review Before Done</div>
-      <div class="guardrail-desc">Re-read every changed file. Check for debug code, hardcoded values, baked-in assumptions.</div>
-      <div class="guardrail-event">process-rules skill → auto-loaded</div>
-    </div>
-    <div class="guardrail-card nondeterministic" data-reveal data-delay="300" data-guard="nd-stop-ask" style="border-color: #00e87b22;">
-      <div class="guardrail-type" style="color: var(--accent);">Process Rule (plugin)</div>
-      <div class="guardrail-name">Stop and Ask</div>
-      <div class="guardrail-desc">Stop when: ambiguous requirements, API/schema changes, 2 failed approaches, scope growth, unknown code.</div>
-      <div class="guardrail-event">process-rules skill → auto-loaded</div>
-    </div>
-  </div>
-
-  <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--purple); margin: 2rem 0 1rem; padding-left: 1.5rem;">
-    Domain Rules <span class="source-badge badge-project">per project</span>
-    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 300;">- generated by /cs:init, project-specific</span>
-  </h3>
-  <div class="guardrails">
-    <div class="guardrail-card nondeterministic" data-reveal data-guard="nd-review-dimensions">
-      <div class="guardrail-type" style="color: var(--purple);">Domain Rule (project)</div>
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="550" data-guard="nd-review-dimensions">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-project">project</span></div>
       <div class="guardrail-name">Review Dimensions</div>
-      <div class="guardrail-desc">Code review dispatches parallel agents for project-specific dimensions. Generated by /cs:init, discovered by /df:review.</div>
-      <div class="guardrail-event">.claude/skills/review/prompts/ → /cs:init generates</div>
+      <div class="guardrail-desc">Project-specific review dimensions. Generated by /cs:init, discovered by /df:review.</div>
     </div>
 
-    <div class="guardrail-card nondeterministic" data-reveal data-delay="100" data-guard="nd-domain-rules">
-      <div class="guardrail-type" style="color: var(--purple);">Domain Rule (project)</div>
-      <div class="guardrail-name">Business Rule Invariants</div>
-      <div class="guardrail-desc">Domain-specific skills enforce business rules: state machines, tenant isolation, entity lifecycle, pricing. Unique per project.</div>
-      <div class="guardrail-event">.claude/skills/ → /cs:init generates from codebase scan</div>
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="600" data-guard="nd-domain-rules">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-project">project</span></div>
+      <div class="guardrail-name">Domain Invariants</div>
+      <div class="guardrail-desc">Business rules: state machines, tenant isolation, entity lifecycle. Generated by /cs:init per project.</div>
     </div>
   </div>
 </section>
