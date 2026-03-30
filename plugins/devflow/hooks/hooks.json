@@ -1,24 +1,32 @@
 {
-  "hooks": [
-    {
-      "event": "SessionStart",
-      "type": "command",
-      "command": "node \"${PLUGIN_DIR}/scripts/lib/session-guard.js\"",
-      "description": "Detect active worktrees and inject context"
-    },
-    {
-      "event": "PreToolUse",
-      "matcher": "Bash",
-      "type": "command",
-      "command": "node \"${PLUGIN_DIR}/scripts/lib/branch-guard.js\"",
-      "description": "Block commits and pushes to main/master"
-    },
-    {
-      "event": "PreToolUse",
-      "matcher": "Bash",
-      "type": "command",
-      "command": "node \"${PLUGIN_DIR}/scripts/lib/review-gate.js\"",
-      "description": "Block PR creation without review verdict"
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/session-guard.js\"",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/branch-guard.js\"",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/review-gate.js\"",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
 }
