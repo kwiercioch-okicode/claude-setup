@@ -811,7 +811,7 @@ body::after {
 <div class="stats">
   <div class="stat"><div class="stat-num">10</div><div class="stat-label">Commands</div></div>
   <div class="stat"><div class="stat-num">7</div><div class="stat-label">Prepare Scripts</div></div>
-  <div class="stat"><div class="stat-num">3</div><div class="stat-label">Guard Hooks</div></div>
+  <div class="stat"><div class="stat-num">5</div><div class="stat-label">Guard Hooks</div></div>
   <div class="stat"><div class="stat-num">2</div><div class="stat-label">Plugins</div></div>
   <div class="stat"><div class="stat-num">0</div><div class="stat-label">npm deps</div></div>
 </div>
@@ -998,6 +998,20 @@ body::after {
       <div class="guardrail-name">/df:doctor</div>
       <div class="guardrail-desc">Verifies all hooks installed, dimensions discovered, verdict gates working. 11 checks, zero LLM.</div>
       <div class="guardrail-event">doctor.js → JSON report</div>
+    </div>
+
+    <div class="guardrail-card injection" data-reveal data-delay="600" data-guard="test-first-guard">
+      <div class="guardrail-type">Context Injection</div>
+      <div class="guardrail-name">Test-First Reminder</div>
+      <div class="guardrail-desc">Reminds to write a failing test before editing production code. Silent for test files, config, and CSS.</div>
+      <div class="guardrail-event">PreToolUse:Edit|Write → test-first-guard.js</div>
+    </div>
+
+    <div class="guardrail-card injection" data-reveal data-delay="700" data-guard="openspec-guard">
+      <div class="guardrail-type">Context Injection</div>
+      <div class="guardrail-name">OpenSpec Reminder</div>
+      <div class="guardrail-desc">Reminds to create an OpenSpec proposal when editing production code without an active proposal in openspec/changes/.</div>
+      <div class="guardrail-event">PreToolUse:Edit|Write → openspec-guard.js</div>
     </div>
   </div>
 </section>
@@ -1287,6 +1301,20 @@ const GUARD_DATA = {
     flow: ['Check hooks installed', 'Verify dimensions discovered', 'Test multi-repo detection', 'Check worktree state', 'Validate verdict files', 'Report JSON'],
     description: 'Pure Node.js diagnostic script with 11 checks and zero LLM involvement. Verifies hooks are installed, review dimensions are discoverable, multi-repo and worktree detection works, OpenSpec is present, gh CLI is authenticated, and verdict files are valid. Outputs structured JSON report.',
     details: { 'Checks': '11 total', 'Covers': 'Hooks, dimensions, multi-repo, worktree, OpenSpec, gh CLI, verdict files', 'Zero LLM': 'Pure Node.js, outputs JSON', 'Output': 'Structured JSON report' }
+  },
+  'test-first-guard': {
+    icon: '🧪', title: 'Test-First Reminder', subtitle: 'Context injection on production file edits',
+    script: 'test-first-guard.js', event: 'PreToolUse:Edit|Write',
+    flow: ['Detect file extension', 'Check if test file', 'Check if config/CSS', 'Inject reminder if production code'],
+    description: 'Fires on every Edit/Write of production files (.php, .tsx, .ts, .jsx, etc.). Injects a context reminder to write a failing test before production code. Silent for test files, config files, CSS, and markdown. Does not block - only injects context.',
+    details: { 'Production extensions': '.php, .tsx, .ts, .jsx, .js, .vue, .py, .go, .java', 'Silent for': 'Test files, config, CSS, markdown', 'Type': 'Context injection (exit 0)', 'References': '/df:test-first command' }
+  },
+  'openspec-guard': {
+    icon: '📋', title: 'OpenSpec Reminder', subtitle: 'Context injection when no active proposal exists',
+    script: 'openspec-guard.js', event: 'PreToolUse:Edit|Write',
+    flow: ['Detect production file', 'Check openspec/ dir exists', 'Check for active proposals', 'Inject reminder if none'],
+    description: 'Fires on every Edit/Write of production files. Checks if the project has an openspec/ directory and whether there are active proposals in openspec/changes/. If no proposals exist, injects a reminder to create one. Silent when proposals exist (assumes work is covered) or when project has no OpenSpec.',
+    details: { 'Checks': 'openspec/ and openspec/changes/ dirs', 'Silent when': 'Active proposals exist, or no openspec/ dir', 'Type': 'Context injection (exit 0)', 'References': '/openspec:proposal command' }
   }
 };
 

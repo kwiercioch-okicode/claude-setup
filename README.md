@@ -42,13 +42,15 @@ Two plugins in one marketplace:
 
 ### Guardrail Hooks
 
-Three deterministic hooks (`plugins/devflow/hooks/hooks.json`) that enforce workflow rules without relying on LLM behavior:
+Five hooks (`plugins/devflow/hooks/hooks.json`) that enforce workflow rules without relying on LLM behavior:
 
-| Hook | Event | Description |
-|---|---|---|
-| `session-guard.js` | SessionStart | Detects active worktrees and injects context |
-| `branch-guard.js` | PreToolUse (Bash) | Blocks commits and pushes to main/master |
-| `review-gate.js` | PreToolUse (Bash) | Blocks PR creation without review verdict |
+| Hook | Event | Type | Description |
+|---|---|---|---|
+| `session-guard.js` | SessionStart | injection | Detects active worktrees and injects context |
+| `branch-guard.js` | PreToolUse (Bash) | blocking | Blocks commits and pushes to main/master |
+| `review-gate.js` | PreToolUse (Bash) | blocking | Blocks PR creation without review verdict |
+| `test-first-guard.js` | PreToolUse (Edit/Write) | injection | Reminds to write failing test before production code |
+| `openspec-guard.js` | PreToolUse (Edit/Write) | injection | Reminds to create OpenSpec proposal for behavioral changes |
 
 ### Prepare Scripts
 
