@@ -401,6 +401,7 @@ body::after {
 }
 .badge-plugin { background: #00e87b1a; color: var(--accent); border: 1px solid var(--accent-dim); }
 .badge-project { background: #a78bfa1a; color: var(--purple); border: 1px solid #a78bfa33; }
+.badge-rules { background: #f59e0b1a; color: var(--warn); border: 1px solid #f59e0b33; }
 
 .enforcement-badge {
   display: inline-block;
@@ -1030,43 +1031,55 @@ body::after {
     </div>
 
     <div class="guardrail-card nondeterministic" data-reveal data-delay="300" data-guard="nd-brainstorming">
-      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-rules">.claude/rules/</span></div>
       <div class="guardrail-name">Brainstorming First</div>
       <div class="guardrail-desc">Creative work must start with exploration: clarify intent, explore approaches, design before code.</div>
     </div>
 
     <div class="guardrail-card nondeterministic" data-reveal data-delay="350" data-guard="nd-drift-check">
-      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-rules">.claude/rules/</span></div>
       <div class="guardrail-name">Drift Check</div>
       <div class="guardrail-desc">After 3+ autonomous steps, re-read original request. Stop if scope shifted.</div>
     </div>
 
     <div class="guardrail-card nondeterministic" data-reveal data-delay="400" data-guard="nd-self-review">
-      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-rules">.claude/rules/</span></div>
       <div class="guardrail-name">Self-Review</div>
       <div class="guardrail-desc">Re-read every changed file before done. Check for debug code, hardcoded values, edge cases.</div>
     </div>
 
     <div class="guardrail-card nondeterministic" data-reveal data-delay="450" data-guard="nd-stop-ask">
-      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-rules">.claude/rules/</span></div>
       <div class="guardrail-name">Stop and Ask</div>
       <div class="guardrail-desc">Stop on: ambiguous requirements, API/schema changes, 2 failed approaches, scope growth.</div>
     </div>
 
-    <div class="guardrail-card deterministic" data-reveal data-delay="500" data-guard="doctor">
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="500" data-guard="nd-minimal-blast">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-rules">.claude/rules/</span></div>
+      <div class="guardrail-name">Minimal Blast Radius</div>
+      <div class="guardrail-desc">Touch only what the task requires. Note adjacent improvements separately, don't bundle.</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="550" data-guard="nd-verify">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-rules">.claude/rules/</span></div>
+      <div class="guardrail-name">Verify Before Done</div>
+      <div class="guardrail-desc">Demonstrate it works: tests pass, behavioral diff, or build succeeds. Not done until verified.</div>
+    </div>
+
+    <div class="guardrail-card deterministic" data-reveal data-delay="275" data-guard="doctor">
       <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="source-badge badge-plugin">plugin</span></div>
       <div class="guardrail-name">/df:doctor</div>
       <div class="guardrail-desc">Verifies all guardrails are working. 11 checks, zero LLM.</div>
     </div>
 
-    <div class="guardrail-card nondeterministic" data-reveal data-delay="550" data-guard="nd-review-dimensions">
-      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-project">project</span></div>
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="650" data-guard="nd-review-dimensions">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-project">project</span></div>
       <div class="guardrail-name">Review Dimensions</div>
       <div class="guardrail-desc">Project-specific review dimensions. Generated by /cs:init, discovered by /df:review.</div>
     </div>
 
-    <div class="guardrail-card nondeterministic" data-reveal data-delay="600" data-guard="nd-domain-rules">
-      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-project">project</span></div>
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="700" data-guard="nd-domain-rules">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-skill">CLAUDE.md</span><span class="source-badge badge-project">project</span></div>
       <div class="guardrail-name">Domain Invariants</div>
       <div class="guardrail-desc">Business rules: state machines, tenant isolation, entity lifecycle. Generated by /cs:init per project.</div>
     </div>
@@ -1365,9 +1378,23 @@ const GUARD_DATA = {
     description: 'Fires on every Edit/Write of production files. Checks if the project has an openspec/ directory and whether there are active proposals in openspec/changes/. If no proposals exist, injects a reminder to create one. Silent when proposals exist (assumes work is covered) or when project has no OpenSpec.',
     details: { 'Checks': 'openspec/ and openspec/changes/ dirs', 'Silent when': 'Active proposals exist, or no openspec/ dir', 'Type': 'Context injection (exit 0)', 'References': '/openspec:proposal command' }
   },
+  'nd-minimal-blast': {
+    icon: '🎯', title: 'Minimal Blast Radius', subtitle: '.claude/rules/ - generated by /cs:init, customizable per project',
+    event: 'CLAUDE.md references .claude/rules/',
+    flow: ['Detect task scope', 'Touch only required files', 'Note adjacent improvements separately', 'Don\'t bundle extras'],
+    description: 'Touch only what the task requires. If you notice adjacent improvements, note them separately - don\'t bundle them in. A bug fix doesn\'t need surrounding code cleaned up. Three similar lines of code is better than a premature abstraction.',
+    details: { 'Source': '.claude/rules/minimal-blast-radius.md', 'Generated by': '/cs:init from template', 'Customizable': 'Edit the rule file per project', 'Enforcement': 'CLAUDE.md reference - LLM self-enforces' }
+  },
+  'nd-verify': {
+    icon: '✅', title: 'Verify Before Done', subtitle: '.claude/rules/ - generated by /cs:init, customizable per project',
+    event: 'CLAUDE.md references .claude/rules/',
+    flow: ['Task implementation done', 'Run tests (gold standard)', 'Show behavioral diff', 'Confirm build succeeds', 'Mark as done'],
+    description: 'A task is not done until demonstrated working. Tests pass (gold standard), behavioral diff (before/after), or build succeeds (minimum). If none possible, explain why and describe manual checks.',
+    details: { 'Source': '.claude/rules/verify-before-done.md', 'Generated by': '/cs:init from template', 'Verification hierarchy': '1. Tests pass 2. Behavioral diff 3. Build succeeds', 'Enforcement': 'CLAUDE.md reference - LLM self-enforces' }
+  },
   'nd-brainstorming': {
-    icon: '💡', title: 'Brainstorming Before Creative Work', subtitle: 'Non-deterministic - LLM must invoke brainstorming skill',
-    event: 'CLAUDE.md instruction',
+    icon: '💡', title: 'Brainstorming Before Creative Work', subtitle: '.claude/rules/ - generated by /cs:init, customizable per project',
+    event: 'CLAUDE.md references .claude/rules/',
     flow: ['Detect creative work request', 'Invoke brainstorming skill', 'Explore intent & requirements', 'Design before implementation'],
     description: 'Any creative work - new features, UI changes, behavior modifications - must start with the brainstorming skill. This explores user intent, requirements, and design before writing code. Skipping is defined as "a bug in your process" in CLAUDE.md.',
     details: { 'Trigger': 'New features, UI, behavior changes', 'Enforcement': 'CLAUDE.md instruction - LLM must self-enforce', 'Skip exceptions': 'Bug fixes, config, refactors', 'Risk if skipped': 'Implementation without understanding requirements' }
