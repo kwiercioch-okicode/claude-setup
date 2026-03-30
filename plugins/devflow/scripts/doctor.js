@@ -154,6 +154,46 @@ function main() {
     devEnv.hasDevEnv ? 'Found' : 'Not found'
   ));
 
+  // --- Process Rules ---
+
+  const rulesDir = join(cwd, '.claude', 'rules');
+  const expectedRules = ['test-first', 'brainstorming', 'drift-check', 'self-review', 'stop-and-ask', 'minimal-blast-radius', 'verify-before-done'];
+  results.rules = [];
+
+  if (!existsSync(rulesDir)) {
+    results.rules.push(check('.claude/rules/', false, 'Directory not found - run /cs:init to generate process rules'));
+  } else {
+    const foundRules = readdirSync(rulesDir).filter(f => f.endsWith('.md')).map(f => f.replace('.md', ''));
+    results.rules.push(check('.claude/rules/', true, `${foundRules.length} rules found`));
+
+    for (const rule of expectedRules) {
+      const found = foundRules.includes(rule);
+      results.rules.push(check(
+        rule,
+        found,
+        found ? 'OK' : 'Missing - run /cs:init or create manually'
+      ));
+    }
+
+    // Check for custom project rules (not in expected list)
+    const customRules = foundRules.filter(r => !expectedRules.includes(r));
+    if (customRules.length > 0) {
+      results.rules.push(check('custom rules', true, customRules.join(', ')));
+    }
+  }
+
+  // Check CLAUDE.md references rules
+  const claudeMd = join(cwd, 'CLAUDE.md');
+  if (existsSync(claudeMd)) {
+    const content = readFileSync(claudeMd, 'utf8');
+    const refsRules = content.includes('.claude/rules') || content.includes('@.claude/rules');
+    results.rules.push(check(
+      'CLAUDE.md references rules',
+      refsRules,
+      refsRules ? 'OK' : 'CLAUDE.md does not reference .claude/rules/ - rules may not be loaded'
+    ));
+  }
+
   // --- Verdict Files ---
 
   const verdictPath = join(cwd, '.devflow', 'review-verdict.json');
