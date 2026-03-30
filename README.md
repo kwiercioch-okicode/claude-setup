@@ -37,7 +37,6 @@ Two plugins in one marketplace:
 | `/df:pr` | Auto-generated PR description |
 | `/df:version` | Semantic versioning + changelog |
 | `/df:ship` | Thin orchestrator: commit -> review -> PR |
-| `/df:test-first` | TDD workflow enforcement |
 | `/df:doctor` | Guardrails health check |
 
 ### Guardrail Hooks

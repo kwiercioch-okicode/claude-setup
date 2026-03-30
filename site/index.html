@@ -809,7 +809,7 @@ body::after {
 
 <!-- Stats -->
 <div class="stats">
-  <div class="stat"><div class="stat-num">10</div><div class="stat-label">Commands</div></div>
+  <div class="stat"><div class="stat-num">9</div><div class="stat-label">Commands</div></div>
   <div class="stat"><div class="stat-num">7</div><div class="stat-label">Prepare Scripts</div></div>
   <div class="stat"><div class="stat-num">5</div><div class="stat-label">Guard Hooks</div></div>
   <div class="stat"><div class="stat-num">2</div><div class="stat-label">Plugins</div></div>
@@ -1030,8 +1030,7 @@ body::after {
     <div class="cmd-item" data-reveal data-delay="250" data-cmd="pr"><span class="cmd-icon">🚀</span><div><div class="cmd-name">/df:pr</div><div class="cmd-desc">Auto PR description</div></div></div>
     <div class="cmd-item" data-reveal data-delay="300" data-cmd="version"><span class="cmd-icon">🏷️</span><div><div class="cmd-name">/df:version</div><div class="cmd-desc">Semver + changelog</div></div></div>
     <div class="cmd-item" data-reveal data-delay="350" data-cmd="ship"><span class="cmd-icon">📦</span><div><div class="cmd-name">/df:ship</div><div class="cmd-desc">End-to-end pipeline</div></div></div>
-    <div class="cmd-item" data-reveal data-delay="400" data-cmd="test-first"><span class="cmd-icon">🧪</span><div><div class="cmd-name">/df:test-first</div><div class="cmd-desc">TDD workflow enforcement</div></div></div>
-    <div class="cmd-item" data-reveal data-delay="450" data-cmd="doctor"><span class="cmd-icon">🩺</span><div><div class="cmd-name">/df:doctor</div><div class="cmd-desc">Guardrails health check</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="400" data-cmd="doctor"><span class="cmd-icon">🩺</span><div><div class="cmd-name">/df:doctor</div><div class="cmd-desc">Guardrails health check</div></div></div>
     <div class="cmd-item" data-reveal data-delay="500" data-cmd="cs-init" style="border-color: #a78bfa33;"><span class="cmd-icon">🔧</span><div><div class="cmd-name" style="color: var(--purple);">/cs:init</div><div class="cmd-desc">Generate .claude/ config</div></div></div>
     <div class="cmd-item" data-reveal data-delay="550" data-cmd="cs-sync" style="border-color: #a78bfa33;"><span class="cmd-icon">🔄</span><div><div class="cmd-name" style="color: var(--purple);">/cs:sync</div><div class="cmd-desc">Sync config with codebase</div></div></div>
     <div class="cmd-item" data-reveal data-delay="600" data-cmd="cs-doctor" style="border-color: #a78bfa33;"><span class="cmd-icon">🏥</span><div><div class="cmd-name" style="color: var(--purple);">/cs:doctor</div><div class="cmd-desc">Diagnose .claude/ health</div></div></div>
@@ -1149,13 +1148,6 @@ const CMD_DATA = {
     flow: ['Compute pipeline steps', 'Display plan', 'Confirm', '/df:commit', '/df:review', 'Check verdict', '/df:pr'],
     description: 'Thin orchestrator (~90 lines) that chains sub-commands sequentially. Ship-prepare.js determines which steps run based on context (uncommitted files, skip flags, gh auth). Review verdict gate between review and PR - stops pipeline on critical/high findings.',
     details: { 'Steps': 'commit -> review -> verdict check -> pr', 'Verdict gate': 'Reads .devflow/review-verdict.json', 'No config file': 'YAGNI - --skip flags suffice' }
-  },
-  'test-first': {
-    icon: '🧪', title: '/df:test-first', subtitle: 'TDD workflow: failing test before production code',
-    flags: ['(no flags - workflow guide)'],
-    flow: ['Identify change type', 'Write failing test', 'Verify red/green', 'Hand off to implementation'],
-    description: 'Enforces test-driven development. Bug fix: write test that reproduces bug (must fail). Feature: write test specifying behavior (must fail). Refactor: write characterization test (must pass). Exceptions: infra/config, CSS-only, pure typos.',
-    details: { 'Bug fix': 'Test reproduces bug -> FAIL', 'Feature': 'Test specifies behavior -> FAIL', 'Refactor': 'Characterization test -> PASS' }
   },
   doctor: {
     icon: '🩺', title: '/df:doctor', subtitle: 'Guardrails health check - 11 checks, zero LLM',
