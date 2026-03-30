@@ -25,76 +25,89 @@ function main() {
 
   // --- Hooks ---
 
-  // Find installed plugin hooks - search recursively in known locations
-  const pluginDirs = [];
+  // Find devflow hooks.json - check cache and marketplaces (only devflow, not all plugins)
   const homePlugins = join(process.env.HOME || '', '.claude', 'plugins');
+  let devflowHooksPath = null;
+  let devflowHooksSource = null;
 
-  function findHooksRecursive(dir, depth = 0) {
-    if (depth > 5 || !existsSync(dir)) return;
+  const candidates = [
+    // Local dev
+    join(cwd, 'plugins', 'devflow', 'hooks', 'hooks.json'),
+    // Marketplace
+    join(homePlugins, 'marketplaces', 'devflow', 'plugins', 'devflow', 'hooks', 'hooks.json'),
+    // Old marketplace name
+    join(homePlugins, 'marketplaces', 'claude-setup', 'plugins', 'devflow', 'hooks', 'hooks.json'),
+  ];
+
+  // Also check cache - find devflow specifically
+  const cacheDir = join(homePlugins, 'cache', 'devflow');
+  if (existsSync(cacheDir)) {
     try {
-      const entries = readdirSync(dir);
-      if (entries.includes('hooks.json') && dir.endsWith('hooks')) {
-        const hooksPath = join(dir, 'hooks.json');
-        const name = dir.replace(homePlugins, '').replace(/\/hooks$/, '').replace(/^\//, '');
-        pluginDirs.push({ name: name || 'devflow', path: hooksPath });
-        return;
-      }
-      for (const entry of entries) {
-        const fullPath = join(dir, entry);
+      // Walk cache/devflow/df/<version>/hooks/hooks.json
+      for (const sub of readdirSync(cacheDir)) {
+        const subPath = join(cacheDir, sub);
         try {
-          if (require('node:fs').statSync(fullPath).isDirectory()) {
-            findHooksRecursive(fullPath, depth + 1);
+          for (const ver of readdirSync(subPath)) {
+            candidates.push(join(subPath, ver, 'hooks', 'hooks.json'));
           }
-        } catch { /* skip */ }
+        } catch { /* not a dir */ }
       }
     } catch { /* skip */ }
   }
 
-  if (existsSync(homePlugins)) {
-    findHooksRecursive(homePlugins);
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      devflowHooksPath = candidate;
+      devflowHooksSource = candidate.replace(homePlugins + '/', '').replace(cwd + '/', '');
+      break;
+    }
   }
 
-  // Check local plugin hooks
-  const localHooks = join(cwd, 'plugins', 'devflow', 'hooks', 'hooks.json');
-  if (existsSync(localHooks)) {
-    pluginDirs.push({ name: 'local-devflow', path: localHooks });
-  }
-
-  if (pluginDirs.length === 0) {
-    results.hooks.push(check('hooks.json', false, 'No devflow hooks found'));
+  if (!devflowHooksPath) {
+    results.hooks.push(check('devflow hooks.json', false, 'Not found - is the df plugin installed?'));
   } else {
-    for (const pd of pluginDirs) {
-      try {
-        const hooks = JSON.parse(readFileSync(pd.path, 'utf8'));
-        // Count hooks in nested format: { hooks: { EventName: [{ hooks: [...] }] } }
-        let hookCount = 0;
-        const hooksObj = hooks.hooks || {};
-        for (const event of Object.keys(hooksObj)) {
-          const matchers = hooksObj[event];
-          if (Array.isArray(matchers)) {
-            for (const matcher of matchers) {
-              hookCount += (matcher.hooks || []).length;
+    try {
+      const hooksFile = JSON.parse(readFileSync(devflowHooksPath, 'utf8'));
+      const hooksObj = hooksFile.hooks || {};
+
+      // Count hooks and collect script commands
+      let hookCount = 0;
+      const scriptCommands = [];
+
+      for (const event of Object.keys(hooksObj)) {
+        const matchers = hooksObj[event];
+        if (Array.isArray(matchers)) {
+          for (const matcher of matchers) {
+            for (const h of (matcher.hooks || [])) {
+              hookCount++;
+              if (h.command) scriptCommands.push({ command: h.command, event });
             }
           }
         }
-        results.hooks.push(check(`hooks.json (${pd.name})`, true, `${hookCount} hooks configured`));
-
-        // Check each hook script exists
-        for (const h of (hooks.hooks || [])) {
-          const scriptMatch = h.command.match(/node\s+"([^"]+)"/);
-          if (scriptMatch) {
-            const scriptPath = scriptMatch[1].replace('${PLUGIN_DIR}', join(cwd, 'plugins', 'devflow'));
-            const scriptExists = existsSync(scriptPath);
-            results.hooks.push(check(
-              `${h.description || h.event}`,
-              scriptExists,
-              scriptExists ? scriptPath : `Script not found: ${scriptPath}`
-            ));
-          }
-        }
-      } catch {
-        results.hooks.push(check(`hooks.json (${pd.name})`, false, 'Failed to parse'));
       }
+
+      results.hooks.push(check('devflow hooks.json', true, `${hookCount} hooks in ${devflowHooksSource}`));
+
+      // Resolve CLAUDE_PLUGIN_ROOT to the hooks.json parent dir (minus /hooks/hooks.json)
+      const pluginRoot = join(devflowHooksPath, '..', '..');
+
+      // Check each hook script exists
+      for (const sc of scriptCommands) {
+        const scriptMatch = sc.command.match(/node\s+"([^"]+)"/);
+        if (scriptMatch) {
+          const rawPath = scriptMatch[1];
+          const resolvedPath = rawPath.replace('${CLAUDE_PLUGIN_ROOT}', pluginRoot);
+          const scriptName = require('node:path').basename(resolvedPath);
+          const scriptExists = existsSync(resolvedPath);
+          results.hooks.push(check(
+            scriptName,
+            scriptExists,
+            scriptExists ? `${sc.event} - OK` : `Script not found: ${resolvedPath}`
+          ));
+        }
+      }
+    } catch (err) {
+      results.hooks.push(check('devflow hooks.json', false, `Parse error: ${err.message}`));
     }
   }
 
