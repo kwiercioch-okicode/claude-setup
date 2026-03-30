@@ -311,3 +311,13 @@ Każda faza to osobny PR, testowalny niezależnie.
 ## GitHub Pages Blueprint Site
 
 Repo hostuje stronę blueprint na GitHub Pages - dokumentacja pluginów, command reference, i getting started guide. Służy jako landing page dla marketplace.
+
+## Future: Jira Integration (zaparkowane)
+
+Bidirectional Jira sync - zaplanowane ale nie zaimplementowane.
+
+**Devflow → Jira:** każdy command automatycznie updatuje Jira (status transitions, komentarze z commit hash, findings, PR link). Wbudowane w prepare scripts, nie osobny command.
+
+**Jira → Devflow:** session-guard wykrywa ticket ID z branch name, pobiera status z Jira, sugeruje następny krok. Bez webhooków - context injection przy starcie sesji.
+
+**Implementacja:** `lib/jira.js` (shared utils, zero deps), `.devflow/jira.json` (project config, transitions map, branch pattern). Fazy: J1 (lib + detection), J2 (prepare scripts), J3 (auto transitions), J4 (config + doctor checks).
