@@ -374,6 +374,8 @@ body::after {
 .guardrail-card.deterministic::before { background: var(--danger); }
 .guardrail-card.injection::before { background: var(--warn); }
 .guardrail-card.gate::before { background: var(--pink); }
+.guardrail-card.nondeterministic::before { background: var(--purple); }
+.guardrail-card.nondeterministic:hover { border-color: var(--purple); box-shadow: 0 0 20px #a78bfa22; }
 
 .guardrail-type {
   font-size: 0.6rem;
@@ -385,6 +387,7 @@ body::after {
 .guardrail-card.deterministic .guardrail-type { color: var(--danger); }
 .guardrail-card.injection .guardrail-type { color: var(--warn); }
 .guardrail-card.gate .guardrail-type { color: var(--pink); }
+.guardrail-card.nondeterministic .guardrail-type { color: var(--purple); }
 
 .guardrail-name {
   font-family: var(--font-display);
@@ -955,8 +958,9 @@ body::after {
 <!-- Guardrails -->
 <section class="section">
   <h2 class="section-title">Guardrails</h2>
-  <p class="section-subtitle">Deterministic hooks enforce rules without relying on LLM memory</p>
+  <p class="section-subtitle">Two layers of protection - deterministic hooks that always fire, and skill-based rules the LLM must follow</p>
 
+  <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--danger); margin-bottom: 1rem; padding-left: 1.5rem;">Deterministic (hooks - always enforced)</h3>
   <div class="guardrails">
     <div class="guardrail-card deterministic" data-reveal data-guard="branch-guard">
       <div class="guardrail-type">Deterministic Hook</div>
@@ -1012,6 +1016,51 @@ body::after {
       <div class="guardrail-name">OpenSpec Reminder</div>
       <div class="guardrail-desc">Reminds to create an OpenSpec proposal when editing production code without an active proposal in openspec/changes/.</div>
       <div class="guardrail-event">PreToolUse:Edit|Write → openspec-guard.js</div>
+    </div>
+  </div>
+
+  <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--purple); margin: 2rem 0 1rem; padding-left: 1.5rem;">Non-deterministic (skill-based - LLM must follow)</h3>
+  <div class="guardrails">
+    <div class="guardrail-card nondeterministic" data-reveal data-guard="nd-brainstorming">
+      <div class="guardrail-type">Mandatory Step</div>
+      <div class="guardrail-name">Brainstorming Before Creative Work</div>
+      <div class="guardrail-desc">Any creative work - new features, UI, behavior changes - must start with brainstorming skill to explore intent and design before implementation.</div>
+      <div class="guardrail-event">CLAUDE.md → Mandatory Steps table</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="100" data-guard="nd-drift-check">
+      <div class="guardrail-type">Process Rule</div>
+      <div class="guardrail-name">Drift Check</div>
+      <div class="guardrail-desc">After every 3+ autonomous steps, pause and re-read the original request. Confirm alignment. Stop and explain if scope shifted.</div>
+      <div class="guardrail-event">CLAUDE.md → When to Stop and Ask</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="200" data-guard="nd-self-review">
+      <div class="guardrail-type">Process Rule</div>
+      <div class="guardrail-name">Self-Review Before Done</div>
+      <div class="guardrail-desc">Re-read every changed file. Check for: leftover debug code, hardcoded values, baked-in assumptions, unhandled edge cases.</div>
+      <div class="guardrail-event">CLAUDE.md → Verification</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="300" data-guard="nd-review-dimensions">
+      <div class="guardrail-type">Review Quality</div>
+      <div class="guardrail-name">10 Review Dimensions</div>
+      <div class="guardrail-desc">Code review dispatches parallel agents for: security, architecture, tests, performance, naming, error-handling, openspec, fotigo-expert, ui-ux, data-flow.</div>
+      <div class="guardrail-event">.claude/skills/review/ → dimension prompts</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="400" data-guard="nd-domain-rules">
+      <div class="guardrail-type">Domain Constraints</div>
+      <div class="guardrail-name">Business Rule Invariants</div>
+      <div class="guardrail-desc">Domain-specific skills enforce business rules: package state machines, multi-tenant isolation, session lifecycle, pricing strategies.</div>
+      <div class="guardrail-event">.claude/skills/ → fotigo-expert, selected-photos, backend-patterns</div>
+    </div>
+
+    <div class="guardrail-card nondeterministic" data-reveal data-delay="500" data-guard="nd-stop-ask">
+      <div class="guardrail-type">Safety Net</div>
+      <div class="guardrail-name">Stop and Ask Rules</div>
+      <div class="guardrail-desc">Must stop when: requirements are ambiguous, fix changes public API/schema, two approaches failed, scope grew beyond request, about to delete unknown code.</div>
+      <div class="guardrail-event">CLAUDE.md → When to Stop and Ask</div>
     </div>
   </div>
 </section>
@@ -1307,6 +1356,48 @@ const GUARD_DATA = {
     flow: ['Detect production file', 'Check openspec/ dir exists', 'Check for active proposals', 'Inject reminder if none'],
     description: 'Fires on every Edit/Write of production files. Checks if the project has an openspec/ directory and whether there are active proposals in openspec/changes/. If no proposals exist, injects a reminder to create one. Silent when proposals exist (assumes work is covered) or when project has no OpenSpec.',
     details: { 'Checks': 'openspec/ and openspec/changes/ dirs', 'Silent when': 'Active proposals exist, or no openspec/ dir', 'Type': 'Context injection (exit 0)', 'References': '/openspec:proposal command' }
+  },
+  'nd-brainstorming': {
+    icon: '💡', title: 'Brainstorming Before Creative Work', subtitle: 'Non-deterministic - LLM must invoke brainstorming skill',
+    event: 'CLAUDE.md instruction',
+    flow: ['Detect creative work request', 'Invoke brainstorming skill', 'Explore intent & requirements', 'Design before implementation'],
+    description: 'Any creative work - new features, UI changes, behavior modifications - must start with the brainstorming skill. This explores user intent, requirements, and design before writing code. Skipping is defined as "a bug in your process" in CLAUDE.md.',
+    details: { 'Trigger': 'New features, UI, behavior changes', 'Enforcement': 'CLAUDE.md instruction - LLM must self-enforce', 'Skip exceptions': 'Bug fixes, config, refactors', 'Risk if skipped': 'Implementation without understanding requirements' }
+  },
+  'nd-drift-check': {
+    icon: '🧭', title: 'Drift Check', subtitle: 'Non-deterministic - LLM must pause every 3+ steps',
+    event: 'CLAUDE.md instruction',
+    flow: ['Count autonomous steps', 'After 3+ steps, pause', 'Re-read original request', 'Confirm alignment', 'Stop if scope shifted'],
+    description: 'After every autonomous sequence of more than 3 steps, the LLM must pause and re-read the original request. If scope has shifted from what was asked, stop and explain the divergence before continuing. Prevents scope creep and tangential work.',
+    details: { 'Trigger': '3+ autonomous steps without checking in', 'Enforcement': 'LLM self-monitoring', 'Action': 'Re-read request, confirm alignment', 'Risk if skipped': 'Scope creep, wasted work, unwanted changes' }
+  },
+  'nd-self-review': {
+    icon: '🔎', title: 'Self-Review Before Done', subtitle: 'Non-deterministic - LLM must review own changes',
+    event: 'CLAUDE.md instruction',
+    flow: ['Re-read every changed file', 'Check for debug code', 'Check for hardcoded values', 'Check for baked-in assumptions', 'Check for unhandled edge cases'],
+    description: 'Before marking any task as done, the LLM must re-read every changed file and answer: "Is this what I intended, or did I drift?" Checks for leftover debug code, hardcoded values that should be configurable, assumptions baked in that aren\'t documented.',
+    details: { 'Trigger': 'Before marking task done', 'Checks': 'Debug code, hardcoded values, assumptions, edge cases', 'Enforcement': 'LLM self-review', 'Risk if skipped': 'Debug code in production, hardcoded values, missed edge cases' }
+  },
+  'nd-review-dimensions': {
+    icon: '📊', title: '10 Review Dimensions', subtitle: 'Non-deterministic - parallel agents check code quality',
+    event: '/df:review dispatches agents',
+    flow: ['Review invoked', 'Discover dimensions', 'Map files to dimensions', 'Dispatch 10 agents in parallel', 'Collect findings', 'Synthesize verdict'],
+    description: 'Code review dispatches parallel agents for 10 dimensions: security, architecture, tests, performance, naming, error-handling, openspec, fotigo-expert, ui-ux, data-flow. Each dimension has its own prompt with project-specific rules and severity classification.',
+    details: { 'Dimensions': 'security, architecture, tests, performance, naming, error-handling, openspec, fotigo-expert, ui-ux, data-flow', 'Location': '.claude/skills/review/prompts/', 'Verdicts': 'APPROVED / APPROVED_WITH_NOTES / CHANGES_REQUESTED', 'Risk if skipped': 'Security holes, architectural violations, missing tests' }
+  },
+  'nd-domain-rules': {
+    icon: '📐', title: 'Business Rule Invariants', subtitle: 'Non-deterministic - domain skills enforce business logic',
+    event: 'Skills auto-triggered on relevant code',
+    flow: ['Detect domain-relevant code change', 'Load domain skill', 'Apply business rule checks', 'Flag violations'],
+    description: 'Domain-specific skills enforce business rules that generic code review would miss: package state machine transitions (selected-photos), multi-tenant account_id isolation (fotigo-expert), entity lifecycle rules (backend-patterns), PHP/React patterns.',
+    details: { 'Skills': 'fotigo-expert, selected-photos, backend-patterns', 'Examples': 'Package state machine, tenant isolation, entity lifecycle', 'Enforcement': 'LLM loads skill when editing relevant code', 'Risk if skipped': 'Business logic violations, state machine corruption, tenant data leaks' }
+  },
+  'nd-stop-ask': {
+    icon: '✋', title: 'Stop and Ask Rules', subtitle: 'Non-deterministic - LLM must recognize ambiguity',
+    event: 'CLAUDE.md instruction',
+    flow: ['Detect ambiguous situation', 'Stop autonomous work', 'Surface uncertainty to user', 'Wait for guidance'],
+    description: 'The LLM must stop and ask when: requirements are ambiguous with meaningfully different interpretations, fix requires changing public API/schema/shared contract, two different approaches both failed, task scope grew beyond original request, about to delete/overwrite code it doesn\'t understand.',
+    details: { 'Must stop': 'Ambiguous requirements, API/schema changes, 2 failed approaches, scope growth, unknown code deletion', 'May proceed': 'Clear reproduction, obvious approach, tests exist, fixing own mistake', 'Risk if skipped': 'Wrong implementation, breaking changes, lost user work' }
   }
 };
 
