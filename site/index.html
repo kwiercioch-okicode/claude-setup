@@ -542,6 +542,9 @@ body::after {
 .cmd-item[data-cmd] { cursor: pointer; }
 .cmd-item[data-cmd]:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
 
+.guardrail-card[data-guard] { cursor: pointer; }
+.guardrail-card[data-guard]:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+
 /* Detail drawer */
 .drawer-overlay {
   position: fixed;
@@ -955,42 +958,42 @@ body::after {
   <p class="section-subtitle">Deterministic hooks enforce rules without relying on LLM memory</p>
 
   <div class="guardrails">
-    <div class="guardrail-card deterministic" data-reveal>
+    <div class="guardrail-card deterministic" data-reveal data-guard="branch-guard">
       <div class="guardrail-type">Deterministic Hook</div>
       <div class="guardrail-name">Branch Protection</div>
       <div class="guardrail-desc">Blocks git commit, push, and merge on protected branches (main, master, staging)</div>
       <div class="guardrail-event">PreToolUse:Bash → branch-guard.js</div>
     </div>
 
-    <div class="guardrail-card deterministic" data-reveal data-delay="100">
+    <div class="guardrail-card deterministic" data-reveal data-delay="100" data-guard="session-guard">
       <div class="guardrail-type">Deterministic Hook</div>
       <div class="guardrail-name">Session Guard</div>
       <div class="guardrail-desc">Detects active worktrees at session start, injects context warning into conversation</div>
       <div class="guardrail-event">SessionStart → session-guard.js</div>
     </div>
 
-    <div class="guardrail-card gate" data-reveal data-delay="200">
+    <div class="guardrail-card gate" data-reveal data-delay="200" data-guard="review-gate">
       <div class="guardrail-type">Mandatory Gate</div>
       <div class="guardrail-name">Review Gate</div>
       <div class="guardrail-desc">Blocks PR creation unless .devflow/review-verdict.json exists and has no critical/high findings</div>
       <div class="guardrail-event">PreToolUse:Bash → review-gate.js</div>
     </div>
 
-    <div class="guardrail-card injection" data-reveal data-delay="300">
+    <div class="guardrail-card injection" data-reveal data-delay="300" data-guard="worktree-warning">
       <div class="guardrail-type">Context Injection</div>
       <div class="guardrail-name">Worktree Warning</div>
       <div class="guardrail-desc">When worktrees are active, injects reminder to work in .worktrees/ directory, not on main branch</div>
       <div class="guardrail-event">SessionStart → stdout message</div>
     </div>
 
-    <div class="guardrail-card gate" data-reveal data-delay="400">
+    <div class="guardrail-card gate" data-reveal data-delay="400" data-guard="verdict-bridge">
       <div class="guardrail-type">Skill Chain Gate</div>
       <div class="guardrail-name">Verdict Bridge</div>
       <div class="guardrail-desc">Review writes verdict JSON → ship reads it. Bridges non-deterministic review with deterministic hook gate</div>
       <div class="guardrail-event">/df:review → .devflow/ → /df:ship</div>
     </div>
 
-    <div class="guardrail-card deterministic" data-reveal data-delay="500">
+    <div class="guardrail-card deterministic" data-reveal data-delay="500" data-guard="doctor">
       <div class="guardrail-type">Health Check</div>
       <div class="guardrail-name">/df:doctor</div>
       <div class="guardrail-desc">Verifies all hooks installed, dimensions discovered, verdict gates working. 11 checks, zero LLM.</div>
@@ -1240,6 +1243,97 @@ document.querySelectorAll('[data-cmd]').forEach(el => {
 overlay.addEventListener('click', closeDrawer);
 drawerClose.addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// Guard detail data
+const GUARD_DATA = {
+  'branch-guard': {
+    icon: '🛡️', title: 'Branch Protection', subtitle: 'Deterministic hook - blocks dangerous git ops on protected branches',
+    script: 'branch-guard.js', event: 'PreToolUse:Bash',
+    flow: ['Read stdin JSON', 'Extract tool_input.command', 'Check current branch', 'Exit 0 (allow) or Exit 2 (block)'],
+    description: 'Reads tool_input.command from stdin JSON on every Bash invocation. Checks if the current branch is protected (main, master, staging). If a git commit, git push, or git merge command targets a protected branch, exits with code 2 and a block message. Exit 0 allows the command through.',
+    details: { 'Protected branches': 'main, master, staging', 'Patterns matched': 'git commit, git push, git merge', 'Exit codes': '0 = allow, 2 = block with message', 'Zero LLM': 'Pure Node.js, no AI involved' }
+  },
+  'session-guard': {
+    icon: '🔒', title: 'Session Guard', subtitle: 'Detects worktrees and multi-repo state at session start',
+    script: 'session-guard.js', event: 'SessionStart',
+    flow: ['Run git worktree list', 'Parse .dev-env.yml', 'Detect active worktrees', 'Inject warning into context'],
+    description: 'Runs at the start of every Claude Code session. Detects active git worktrees and multi-repo configuration from .dev-env.yml. Injects a warning message into the conversation context so the LLM knows which worktree is active and avoids editing files on the wrong branch.',
+    details: { 'Detection': 'git worktree list, .dev-env.yml', 'Output': 'Injects warning message into conversation context', 'Multi-repo': 'Checks all repos from .dev-env.yml', 'Trigger': 'Every session start, automatically' }
+  },
+  'review-gate': {
+    icon: '⛔', title: 'Review Gate', subtitle: 'Blocks PR creation without passing review verdict',
+    script: 'review-gate.js', event: 'PreToolUse:Bash',
+    flow: ['Intercept gh pr create', 'Check .devflow/review-verdict.json', 'Verify verdict != CHANGES_REQUESTED', 'Allow or block'],
+    description: 'Intercepts Bash commands matching "gh pr create". Checks that .devflow/review-verdict.json exists and that the verdict is not CHANGES_REQUESTED. If the file is missing or the verdict is negative, blocks the PR creation with exit code 2. Bypass: create PR manually outside Claude Code.',
+    details: { 'Matcher': 'gh pr create in Bash command', 'Verdict file': '.devflow/review-verdict.json', 'Block condition': 'File missing or verdict == CHANGES_REQUESTED', 'Bypass': 'Create PR manually outside Claude Code' }
+  },
+  'worktree-warning': {
+    icon: '⚠️', title: 'Worktree Warning', subtitle: 'Context injection reminding to work in .worktrees/ directory',
+    event: 'SessionStart (part of session-guard)',
+    flow: ['Session guard detects worktrees', 'Worktrees active?', 'Inject reminder message', 'LLM reads context'],
+    description: 'Part of session-guard.js. When worktrees are detected and the user is on main/master, injects a reminder message: "Edit files in .worktrees/<name>/, not on main branch." This prevents the common mistake of editing files in the main working tree when a feature worktree is active.',
+    details: { 'Type': 'Context injection (part of session-guard)', 'Message': '"Edit files in .worktrees/<name>/, not on main branch"', 'Trigger': 'When worktrees detected and user is on main/master', 'Mechanism': 'stdout message read by Claude Code' }
+  },
+  'verdict-bridge': {
+    icon: '🔗', title: 'Verdict Bridge', subtitle: 'Architecture pattern bridging LLM review with deterministic gate',
+    event: 'Architecture pattern',
+    flow: ['/df:review runs', 'Writes .devflow/review-verdict.json', 'review-gate.js reads it', '/df:ship reads it'],
+    description: 'Not a script but an architecture pattern. The /df:review command (non-deterministic, LLM-based) writes a structured verdict JSON file. The review-gate.js hook (deterministic, zero LLM) reads that file to gate PR creation. The /df:ship command also reads it to decide whether to proceed. This bridges the gap between non-deterministic review and deterministic enforcement.',
+    details: { 'Type': 'Architecture pattern, not a script', 'Writer': '/df:review -> .devflow/review-verdict.json', 'Readers': 'review-gate.js (hook), /df:ship (command)', 'Purpose': 'Bridges non-deterministic LLM review with deterministic hook gate' }
+  },
+  'doctor': {
+    icon: '🩺', title: '/df:doctor', subtitle: 'Health check - 11 checks, zero LLM involvement',
+    script: 'doctor.js', event: 'On-demand (/df:doctor)',
+    flow: ['Check hooks installed', 'Verify dimensions discovered', 'Test multi-repo detection', 'Check worktree state', 'Validate verdict files', 'Report JSON'],
+    description: 'Pure Node.js diagnostic script with 11 checks and zero LLM involvement. Verifies hooks are installed, review dimensions are discoverable, multi-repo and worktree detection works, OpenSpec is present, gh CLI is authenticated, and verdict files are valid. Outputs structured JSON report.',
+    details: { 'Checks': '11 total', 'Covers': 'Hooks, dimensions, multi-repo, worktree, OpenSpec, gh CLI, verdict files', 'Zero LLM': 'Pure Node.js, outputs JSON', 'Output': 'Structured JSON report' }
+  }
+};
+
+// Guard card click handlers
+document.querySelectorAll('[data-guard]').forEach(el => {
+  el.addEventListener('click', () => {
+    const guardKey = el.dataset.guard;
+    const data = GUARD_DATA[guardKey];
+    if (!data) return;
+
+    document.getElementById('drawerIcon').textContent = data.icon;
+    document.getElementById('drawerTitle').textContent = data.title;
+    document.getElementById('drawerSubtitle').textContent = data.subtitle;
+
+    let html = '';
+
+    // Tags
+    html += '<div class="drawer-section"><div class="drawer-section-title">Components</div>';
+    if (data.script) html += `<span class="drawer-tag script">${data.script}</span>`;
+    if (data.event) html += `<span class="drawer-tag hook">${data.event}</span>`;
+    html += '</div>';
+
+    // Flow
+    html += '<div class="drawer-section"><div class="drawer-section-title">Flow</div><div class="drawer-flow">';
+    data.flow.forEach((step, i) => {
+      if (i > 0) html += '<span class="drawer-flow-arrow">&#8594;</span>';
+      html += `<span class="drawer-flow-step">${step}</span>`;
+    });
+    html += '</div></div>';
+
+    // Description
+    html += `<div class="drawer-section"><div class="drawer-section-title">Description</div><p class="drawer-detail-text">${data.description}</p></div>`;
+
+    // Details
+    if (data.details) {
+      html += '<div class="drawer-section"><div class="drawer-section-title">Details</div><dl class="drawer-kv">';
+      Object.entries(data.details).forEach(([k, v]) => {
+        html += `<dt>${k}</dt><dd>${v}</dd>`;
+      });
+      html += '</dl></div>';
+    }
+
+    document.getElementById('drawerBody').innerHTML = html;
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+  });
+});
 
 // Also make pipeline steps clickable
 const PIPELINE_CMD_MAP = { 'Plan': 'plan', 'Execute': 'execute', 'Commit': 'commit', 'Review': 'review', 'Pull Request': 'pr' };

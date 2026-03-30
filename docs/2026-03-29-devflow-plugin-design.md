@@ -6,8 +6,8 @@
 
 ## Decyzje
 
-- Jeden marketplace (`devflow`), dwa pluginy: `devflow` (SDLC workflow) + `setup` (config generation)
-- Plugin devflow: bez suffixów w komendach (`/review` nie `/review-sdlc`)
+- Jeden marketplace (`devflow`), dwa pluginy: `df` (SDLC workflow) + `cs` (config generation)
+- Komendy w `commands/*.md` - auto-prefixed z plugin name (`/df:review`, `/cs:init` etc.)
 - Scope devflow: generyczne SDLC + dev environments (worktrees)
 - Scope setup: generowanie i utrzymanie `.claude/` config z codebase (scanner, compositor, doctor)
 - Domain-specific skille (fotigo-expert, selected-photos, backend-patterns etc.) zostają w `.claude/` projektu
@@ -25,18 +25,18 @@ devflow/                                  # marketplace repo
 +-- plugins/
 |   +-- devflow/                          # Plugin 1: SDLC workflow
 |   |   +-- .claude-plugin/
-|   |   |   +-- plugin.json              # name: "devflow"
-|   |   +-- skills/
-|   |   |   +-- dev/SKILL.md             # worktree management
-|   |   |   +-- plan/SKILL.md            # structured plan z dowolnego inputu
-|   |   |   +-- execute/SKILL.md         # wave dispatch, verify, structured logging
-|   |   |   +-- commit/SKILL.md          # smart commit, style detection
-|   |   |   +-- review/SKILL.md          # multi-dimension code review
-|   |   |   +-- pr/SKILL.md              # auto PR description
-|   |   |   +-- version/SKILL.md         # semver + changelog
-|   |   |   +-- ship/SKILL.md            # cienki orchestrator
-|   |   |   +-- test-first/SKILL.md      # TDD workflow
-|   |   |   +-- doctor/SKILL.md          # guardrails health check
+|   |   |   +-- plugin.json              # name: "df"
+|   |   +-- commands/                     # user-facing entry points (auto-prefixed: /df:*)
+|   |   |   +-- worktree.md              # /df:worktree - worktree management
+|   |   |   +-- plan.md                  # /df:plan - structured plan
+|   |   |   +-- execute.md               # /df:execute - wave dispatch
+|   |   |   +-- commit.md                # /df:commit - smart commit
+|   |   |   +-- review.md                # /df:review - multi-dimension code review
+|   |   |   +-- pr.md                    # /df:pr - auto PR description
+|   |   |   +-- version.md               # /df:version - semver + changelog
+|   |   |   +-- ship.md                  # /df:ship - cienki orchestrator
+|   |   |   +-- test-first.md            # /df:test-first - TDD workflow
+|   |   |   +-- doctor.md                # /df:doctor - guardrails health check
 |   |   +-- agents/
 |   |   |   +-- review-orchestrator.md
 |   |   +-- hooks/
@@ -56,7 +56,7 @@ devflow/                                  # marketplace repo
 |   |           +-- discovery.js         # project detection
 |   +-- setup/                            # Plugin 2: Config generation (z claude-setup)
 |       +-- .claude-plugin/
-|       |   +-- plugin.json              # name: "setup"
+|       |   +-- plugin.json              # name: "cs"
 |       +-- skills/
 |       |   +-- scanner/SKILL.md         # deep codebase scanning (non-inferable info)
 |       |   +-- compositor/SKILL.md      # combines scanner output -> .claude/ files
@@ -78,7 +78,7 @@ devflow/                                  # marketplace repo
 
 ## Skille
 
-### /dev - Worktree Management
+### /df:worktree - Worktree Management
 
 Przeniesiony z `kwiercioch-okicode/dev-env-claude-plugin`. Shell-based (`dev-env.sh`).
 
@@ -86,7 +86,7 @@ Komendy: `create <branch>`, `remove <name>`, `up <name>`, `down <name>`, `status
 
 Czyta `.dev-env.yml` z project root. Multi-repo aware (tworzy worktree w każdym repo).
 
-### /plan - Structured Plan Generation
+### /df:plan - Structured Plan Generation
 
 Generuje implementation plan z dowolnego inputu:
 - Opis tekstowy w conversation
@@ -96,9 +96,9 @@ Generuje implementation plan z dowolnego inputu:
 
 Prepare script (`plan-prepare.js`) wykrywa source type i pre-fetchuje dane.
 
-Output: structured plan z task groups, dependencies, wave structure - kompatybilny z `/execute`.
+Output: structured plan z task groups, dependencies, wave structure - kompatybilny z `/df:execute`.
 
-### /execute - Plan Execution
+### /df:execute - Plan Execution
 
 Lean skill - zapewnia prawidłowy dispatch:
 - Parsuje plan → dependency graph → waves
@@ -108,7 +108,7 @@ Lean skill - zapewnia prawidłowy dispatch:
 
 Nie reimplementuje: state persistence (Claude Code `--resume`), checkpoint management.
 
-### /commit - Smart Commit
+### /df:commit - Smart Commit
 
 Prepare script (`commit-prepare.js`) pre-computuje:
 - Staged files list
@@ -118,7 +118,7 @@ Prepare script (`commit-prepare.js`) pre-computuje:
 
 LLM generuje commit message w stylu projektu. `--auto` skipuje approval.
 
-### /review - Multi-dimension Code Review
+### /df:review - Multi-dimension Code Review
 
 Prepare script (`review-prepare.js`) pre-computuje:
 - Changed files z diff hunks
@@ -138,7 +138,7 @@ Verdict zapisywany do `.devflow/review-verdict.json`:
 }
 ```
 
-### /pr - Auto PR Description
+### /df:pr - Auto PR Description
 
 Prepare script (`pr-prepare.js`) pre-computuje:
 - Commits structured
@@ -148,7 +148,7 @@ Prepare script (`pr-prepare.js`) pre-computuje:
 
 LLM generuje PR title + body. `--auto` skipuje approval, `--draft` tworzy draft PR.
 
-### /version - Semver + Changelog
+### /df:version - Semver + Changelog
 
 Prepare script (`version-prepare.js`) pre-computuje:
 - Current version (git tags)
@@ -158,7 +158,7 @@ Prepare script (`version-prepare.js`) pre-computuje:
 
 `--bump patch|minor|major` lub auto-detect z conventional commits.
 
-### /ship - Thin Orchestrator
+### /df:ship - Thin Orchestrator
 
 Max ~60 linii SKILL.md. Sekwencyjnie woła:
 
@@ -167,9 +167,9 @@ ship-prepare.js → JSON z pipeline steps
 Wyświetl tabelę
 Jeśli --dry-run → stop
 Jeśli nie --auto → potwierdź z userem
-Skill("commit")   → jeśli dirty files
-Skill("review")   → jeśli nie skipped
-Skill("pr")       → jeśli nie skipped
+Skill("df:commit")   → jeśli dirty files
+Skill("df:review")   → jeśli nie skipped
+Skill("df:pr")       → jeśli nie skipped
 ```
 
 Flagii: `--skip step1,step2`, `--auto`, `--dry-run`.
@@ -182,7 +182,7 @@ Czego NIE robi (vs sdlc-marketplace):
 - Brak fix loop (robisz ręcznie)
 - Brak state persistence (Claude Code `--resume`)
 
-### /test-first - TDD Workflow
+### /df:test-first - TDD Workflow
 
 Przeniesiony z obecnego `.claude/skills/test-first/`. Universal - działa w każdym projekcie.
 
@@ -209,7 +209,7 @@ Wymusza: failing test → production code → verify green.
 
 ### Mandatory skill chain (niedeterministyczne gate)
 
-- `/ship` wymaga `.devflow/review-verdict.json` (tworzone przez `/review`)
+- `/df:ship` wymaga `.devflow/review-verdict.json` (tworzone przez `/df:review`)
 - Hook na `gh pr create` sprawdza verdict file deterministycznie
 - Verdict file to bridge: niedeterministyczny review → deterministyczny hook gate
 
@@ -241,11 +241,11 @@ LLM nigdy nie parsuje raw git output. Script robi dirty work.
 
 ## Podział: Plugin vs .claude/ projektu
 
-### → devflow plugin (generyczne SDLC)
+### → df plugin (generyczne SDLC)
 
-review, commit, pr, version, ship, plan, execute, dev, test-first, doctor, guardrail hooks
+review, commit, pr, version, ship, plan, execute, worktree, test-first, doctor, guardrail hooks
 
-### -> setup plugin (config generation - z claude-setup)
+### -> cs plugin (config generation - z claude-setup)
 
 scanner, compositor, cs:doctor, cs:init, cs:sync, detect-stack, templates
 
@@ -253,16 +253,16 @@ scanner, compositor, cs:doctor, cs:init, cs:sync, detect-stack, templates
 
 architecture, backend-patterns, data-flow, database-schema, debugging, e2e-test-patterns, error-handling, fotigo-expert, frontend-design, functional-tests, google-slides, naming, openspec-review, performance, polish-blog-writer, react-components, remotion-promo-video, security, selected-photos, skill-eval, sync-tools, tests-review, ticket-runner, tutorial-video, ui-ux, website-builder, autoskill
 
-Review dimensions (architecture, security, naming etc.) zostają w `.claude/` - plugin `/review` je odkrywa automatycznie przez `discovery.js`.
+Review dimensions (architecture, security, naming etc.) zostają w `.claude/` - plugin `/df:review` je odkrywa automatycznie przez `discovery.js`.
 
-## /doctor - Guardrails Health Check
+## /df:doctor - Guardrails Health Check
 
 Deterministyczny skill (zero LLM) - czysty JS prepare script (`doctor.js`).
 
 Sprawdza czy guardrails w projekcie działają poprawnie:
 
 ```
-/doctor
+/df:doctor
 
 Hooks:
   [pass] hooks/hooks.json loaded (5 hooks active)
@@ -293,17 +293,21 @@ Co robi `doctor.js`:
 
 ## Phased Delivery
 
-| Faza | Co | Wartość |
+| Faza | Co | Status |
 |---|---|---|
-| 1 | Scaffolding: repo rename, marketplace.json (2 plugins), manifests, `lib/git.js`, `lib/discovery.js`, migracja setup plugin z claude-setup | Struktura obu pluginów działa |
-| 2 | `/dev` (migracja dev-env.sh) + hooks (branch protection, worktree guard) | Worktree management + first guardrails |
-| 3 | `/commit` + commit-prepare.js | Pierwszy SDLC skill z prepare script |
-| 4 | `/review` + review-prepare.js + orchestrator agent + verdict JSON | Review z dimension discovery |
-| 5 | `/pr` + pr-prepare.js + PR review gate hook | Auto PR + mandatory review gate |
-| 6 | `/plan` + plan-prepare.js | Structured planning |
-| 7 | `/execute` + execute-prepare.js | Wave dispatch |
-| 8 | `/ship` + ship-prepare.js | Pipeline chain |
-| 9 | `/version`, `/test-first`, `/doctor` | Kompletne portfolio + health check |
-| 10 | Evals + migracja skilli z Fotigo `.claude/` | Quality gate + cleanup |
+| 1 | Scaffolding: repo rename, marketplace.json (2 plugins), manifests, `lib/git.js`, `lib/discovery.js`, migracja setup plugin z claude-setup | DONE |
+| 2 | `/df:worktree` (migracja dev-env.sh) + hooks (branch protection, worktree guard) | DONE |
+| 3 | `/df:commit` + commit-prepare.js | DONE |
+| 4 | `/df:review` + review-prepare.js + orchestrator agent + verdict JSON | DONE |
+| 5 | `/df:pr` + pr-prepare.js + PR review gate hook | DONE |
+| 6 | `/df:plan` + plan-prepare.js | DONE |
+| 7 | `/df:execute` + execute-prepare.js | DONE |
+| 8 | `/df:ship` + ship-prepare.js | DONE |
+| 9 | `/df:version`, `/df:test-first`, `/df:doctor` | DONE |
+| 10 | Evals + migracja skilli z Fotigo `.claude/` | TODO |
 
 Każda faza to osobny PR, testowalny niezależnie.
+
+## GitHub Pages Blueprint Site
+
+Repo hostuje stronę blueprint na GitHub Pages - dokumentacja pluginów, command reference, i getting started guide. Służy jako landing page dla marketplace.

@@ -4,8 +4,10 @@ Claude Code plugin marketplace for SDLC automation and project configuration.
 
 Two plugins in one marketplace:
 
-- **devflow** - SDLC workflow: plan, execute, commit, review, PR, version, ship. With guardrail hooks and worktree management.
-- **setup** - Generate and maintain `.claude/` configuration from codebase analysis.
+- **df** (devflow) - SDLC workflow: plan, execute, commit, review, PR, version, ship. With guardrail hooks and worktree management.
+- **cs** (setup) - Generate and maintain `.claude/` configuration from codebase analysis.
+
+**Docs:** https://kwiercioch-okicode.github.io/devflow/
 
 ## Installation
 
@@ -19,39 +21,40 @@ Two plugins in one marketplace:
 
 ```
 /plugin marketplace add kwiercioch-okicode/devflow
-/plugin install devflow@devflow
-/plugin install setup@devflow
+/plugin install df@devflow
+/plugin install cs@devflow
 ```
 
-## devflow plugin
+## df plugin (devflow)
 
 | Skill | Description |
 |---|---|
-| `/dev` | Worktree management (create, remove, up, down, status) |
-| `/plan` | Generate structured implementation plan from any input |
-| `/execute` | Wave-based plan execution with dependency tracking |
-| `/commit` | Smart commit with style detection |
-| `/review` | Multi-dimension code review with prepare scripts |
-| `/pr` | Auto-generated PR description |
-| `/version` | Semantic versioning + changelog |
-| `/ship` | Thin orchestrator: commit -> review -> PR |
-| `/test-first` | TDD workflow enforcement |
-| `/doctor` | Guardrails health check |
+| `/df:worktree` | Worktree management (create, remove, up, down, status) |
+| `/df:plan` | Generate structured implementation plan from any input |
+| `/df:execute` | Wave-based plan execution with dependency tracking |
+| `/df:commit` | Smart commit with style detection |
+| `/df:review` | Multi-dimension code review with prepare scripts |
+| `/df:pr` | Auto-generated PR description |
+| `/df:version` | Semantic versioning + changelog |
+| `/df:ship` | Thin orchestrator: commit -> review -> PR |
+| `/df:test-first` | TDD workflow enforcement |
+| `/df:doctor` | Guardrails health check |
 
-### Guardrails
+### Guardrail Hooks
 
-Deterministic hooks that enforce workflow rules without relying on LLM behavior:
+Three deterministic hooks (`plugins/devflow/hooks/hooks.json`) that enforce workflow rules without relying on LLM behavior:
 
-- **Branch protection** - blocks commits/pushes to main/master
-- **Worktree guard** - detects active worktrees, injects context
-- **Review gate** - blocks PR creation without review verdict
-- **Secret detection** - scans staged files for credentials
+| Hook | Event | Description |
+|---|---|---|
+| `session-guard.js` | SessionStart | Detects active worktrees and injects context |
+| `branch-guard.js` | PreToolUse (Bash) | Blocks commits and pushes to main/master |
+| `review-gate.js` | PreToolUse (Bash) | Blocks PR creation without review verdict |
 
 ### Prepare Scripts
 
 Every skill that touches git has a JS prepare script that pre-computes data and returns JSON. The LLM never parses raw git output - scripts do the dirty work. Zero npm dependencies.
 
-## setup plugin
+## cs plugin (setup)
 
 | Command | Description |
 |---|---|
