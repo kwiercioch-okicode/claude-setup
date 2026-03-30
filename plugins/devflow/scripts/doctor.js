@@ -157,7 +157,7 @@ function main() {
   // --- Process Rules ---
 
   const rulesDir = join(cwd, '.claude', 'rules');
-  const expectedRules = ['test-first', 'brainstorming', 'drift-check', 'self-review', 'stop-and-ask', 'minimal-blast-radius', 'verify-before-done'];
+  const expectedRules = ['test-first', 'brainstorming', 'drift-check', 'self-review', 'stop-and-ask', 'minimal-blast-radius', 'verify-before-done', 'security-first', 'fact-check', 'explain-before-coding', 'use-lsp-first'];
   results.rules = [];
 
   if (!existsSync(rulesDir)) {
