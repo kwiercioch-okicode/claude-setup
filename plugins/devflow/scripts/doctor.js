@@ -157,7 +157,7 @@ function main() {
   // --- Process Rules ---
 
   const rulesDir = join(cwd, '.claude', 'rules');
-  const expectedRules = ['test-first', 'brainstorming', 'drift-check', 'self-review', 'stop-and-ask', 'minimal-blast-radius', 'verify-before-done', 'security-first', 'fact-check', 'explain-before-coding', 'use-lsp-first'];
+  const expectedRules = ['test-first', 'brainstorming', 'drift-check', 'self-review', 'stop-and-ask', 'minimal-blast-radius', 'verify-before-done', 'security-first', 'fact-check', 'explain-before-coding', 'use-lsp-first', 'self-learning'];
   results.rules = [];
 
   if (!existsSync(rulesDir)) {
@@ -192,6 +192,31 @@ function main() {
       refsRules,
       refsRules ? 'OK' : 'CLAUDE.md does not reference .claude/rules/ - rules may not be loaded'
     ));
+  }
+
+  // --- Learnings ---
+
+  const learningsPath = join(cwd, '.claude', 'learnings', 'log.md');
+  if (existsSync(learningsPath)) {
+    const content = readFileSync(learningsPath, 'utf8');
+    const activeCount = (content.match(/\*\*Status:\*\* ACTIVE/gi) || []).length;
+    const totalCount = (content.match(/^## \d{4}-\d{2}-\d{2}/gm) || []).length;
+
+    results.rules.push(check(
+      'learnings log',
+      true,
+      `${totalCount} entries (${activeCount} ACTIVE)`
+    ));
+
+    if (activeCount >= 10) {
+      results.rules.push(check(
+        'harvest threshold',
+        false,
+        `${activeCount} ACTIVE learnings - run harvest to promote into skills/rules`
+      ));
+    }
+  } else {
+    results.rules.push(check('learnings log', true, 'Not found (no learnings captured yet)'));
   }
 
   // --- Verdict Files ---
