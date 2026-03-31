@@ -1,6 +1,6 @@
 ---
 description: "Jira integration - fetch ticket for planning, post test cases after OpenSpec proposal, post E2E results with screenshots."
-allowed-tools: [Read, Glob, Grep, Bash, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__fetchAtlassian, mcp__atlassian__getAccessibleAtlassianResources]
+allowed-tools: [Read, Glob, Grep, Bash, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue]
 ---
 
 # /df:jira
@@ -57,13 +57,9 @@ Run Playwright tests and post results + screenshots to Jira as visual proof.
      --reporter=json \
      --screenshot=on \
      --output=test-results/ \
-     2>&1 | tee /tmp/pw-output.txt; \
-   cat /tmp/pw-output.txt | node -e "
-     const lines = require('fs').readFileSync('/dev/stdin','utf8');
-     const json = lines.match(/\{[\s\S]*\}/);
-     if (json) require('fs').writeFileSync('/tmp/pw-results.json', json[0]);
-   "
+     > /tmp/pw-results.json 2>/tmp/pw-stderr.txt
    ```
+   JSON goes to stdout → `/tmp/pw-results.json`. Stderr (progress output) to `/tmp/pw-stderr.txt`.
 
 2. Parse `/tmp/pw-results.json` - for each test extract:
    - Test title (should match OpenSpec scenario name)
@@ -88,21 +84,19 @@ Run Playwright tests and post results + screenshots to Jira as visual proof.
 
 4. Post comment via `mcp__atlassian__addCommentToJiraIssue`
 
-5. Attach screenshots via Jira REST API (Atlassian MCP has no attachment tool):
+5. Attach screenshots via Jira REST API (Atlassian MCP has no file upload tool).
+   Requires env vars in `~/.claude/settings.json`: `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`.
+   For each screenshot file found in step 2:
    ```bash
-   # Get base URL from MCP first (mcp__atlassian__getAccessibleAtlassianResources)
-   # Then for each screenshot:
    curl -s -X POST \
-     "$JIRA_URL/rest/api/3/issue/<TICKET-ID>/attachments" \
+     "${JIRA_URL}/rest/api/3/issue/<TICKET-ID>/attachments" \
      -H "X-Atlassian-Token: no-check" \
-     -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+     -H "Authorization: Basic $(echo -n "${JIRA_EMAIL}:${JIRA_API_TOKEN}" | base64)" \
      -F "file=@<screenshot-path>;type=image/png"
    ```
-   Env vars required: `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`.
-   If env vars missing: skip attachments, report screenshots path locally and note they need manual upload.
+   If env vars missing: report "Brak JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN w ~/.claude/settings.json - screenshoty w test-results/ wymagaja recznego uploadu przez Jira UI" and stop.
 
 6. Report: "Wyniki dodane do <TICKET-ID> (N/M PASS, M screenshotow zalaczonych)"
-   If attachments skipped: "Screenshoty zapisane w test-results/ - wymagaja recznego uploadu (brak JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN)"
 
 ---
 
