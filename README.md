@@ -38,6 +38,7 @@ Two plugins in one marketplace:
 | `/df:version` | Semantic versioning + changelog |
 | `/df:ship` | Thin orchestrator: commit -> review -> PR |
 | `/df:doctor` | Guardrails health check |
+| `/df:jira` | Fetch Jira ticket for planning, post test cases after OpenSpec |
 
 ### Guardrail Hooks
 
