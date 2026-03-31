@@ -17,6 +17,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/secrets-guard.js\"",
+            "timeout": 3000
+          },
+          {
+            "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/branch-guard.js\"",
             "timeout": 5000
           },
@@ -24,6 +29,16 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/review-gate.js\"",
             "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/secrets-guard.js\"",
+            "timeout": 3000
           }
         ]
       },

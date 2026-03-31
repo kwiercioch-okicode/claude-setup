@@ -1060,6 +1060,12 @@ body::after {
       <div class="guardrail-desc">Review writes verdict JSON, hook reads it before PR. Bridges LLM review with deterministic gate.</div>
     </div>
 
+    <div class="guardrail-card deterministic" data-reveal data-delay="175" data-guard="secrets-guard">
+      <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="source-badge badge-plugin">plugin</span></div>
+      <div class="guardrail-name">Secrets Guard</div>
+      <div class="guardrail-desc">Blocks reading .env, *.pem, *.key, credentials.json and similar files. Blocks bash commands that expose secrets.</div>
+    </div>
+
     <div class="guardrail-card injection" data-reveal data-delay="200" data-guard="test-first-guard">
       <div class="guardrail-badges"><span class="enforcement-badge badge-hook">hook</span><span class="enforcement-badge badge-skill">skill</span><span class="source-badge badge-plugin">plugin</span></div>
       <div class="guardrail-name">Test First</div>
@@ -1412,6 +1418,13 @@ const GUARD_DATA = {
     flow: ['/df:review runs', 'Writes .devflow/review-verdict.json', 'review-gate.js reads it', '/df:ship reads it'],
     description: 'Not a script but an architecture pattern. The /df:review command (non-deterministic, LLM-based) writes a structured verdict JSON file. The review-gate.js hook (deterministic, zero LLM) reads that file to gate PR creation. The /df:ship command also reads it to decide whether to proceed. This bridges the gap between non-deterministic review and deterministic enforcement.',
     details: { 'Type': 'Architecture pattern, not a script', 'Writer': '/df:review -> .devflow/review-verdict.json', 'Readers': 'review-gate.js (hook), /df:ship (command)', 'Purpose': 'Bridges non-deterministic LLM review with deterministic hook gate' }
+  },
+  'secrets-guard': {
+    icon: '🔐', title: 'Secrets Guard', subtitle: 'Deterministic hook - blocks LLM from reading secret files or exposing env vars',
+    script: 'secrets-guard.js', event: 'PreToolUse:Read + PreToolUse:Bash',
+    flow: ['Intercept Read/Bash', 'Check file path or command', 'Match secret patterns', 'Exit 2 (block) or Exit 0 (allow)'],
+    description: 'Fires on every Read and Bash tool call. For Read: blocks files matching secret patterns (.env*, *.pem, *.key, credentials.json, id_rsa, etc.). For Bash: blocks commands that may expose secrets (cat .env, printenv, env, export SECRET=). When blocked, tells the LLM to ask the user for the value directly.',
+    details: { 'Blocked files': '.env*, *.pem, *.key, *.p12, credentials.json, secrets.json, id_rsa, id_ed25519, service-account.json', 'Blocked commands': 'cat .env, printenv, env, export *_KEY=', 'Exit codes': '0 = allow, 2 = block with message', 'Zero LLM': 'Pure Node.js pattern matching' }
   },
   'doctor': {
     icon: '🩺', title: '/df:doctor', subtitle: 'Health check - 11 checks, zero LLM involvement',
