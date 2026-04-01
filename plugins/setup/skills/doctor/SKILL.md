@@ -1,87 +1,133 @@
 ---
-name: doctor
-description: Diagnose .claude/ configuration health - broken references, drift, quality issues, obsolete gotchas. Used by /cs:sync.
-user-invocable: false
+description: "Diagnose claude-setup installation, templates, project configuration, and ecosystem tools."
 ---
 
-# Doctor Skill
+# /cs:doctor - Diagnostic Check
 
-You are the diagnostics agent. You compare `.claude/` configuration against the actual codebase to find problems.
+You are the diagnostic agent for `claude-setup`. Run all checks and present a clean, concise report.
 
-## Diagnostic Dimensions
+## Step 1: Plugin Check
 
-### 1. Broken References
-Check every file path, class name, function name, and config value mentioned in skills and docs:
+Check plugin installation:
 
-```
-For each .claude/skills/*/SKILL.md and .claude/docs/*.md:
-  Extract all file paths (src/..., lib/..., etc.)
-  Extract all symbol names (class X, function Y, etc.)
-  Verify each exists in the codebase
-  Flag any that don't exist
+```bash
+# Check if cs plugin is in installed_plugins.json
+cat ~/.claude/plugins/installed_plugins.json 2>/dev/null | grep -o '"cs@claude-setup"'
+# Get installed version
+cat ~/.claude/plugins/installed_plugins.json 2>/dev/null | grep -A5 '"cs@claude-setup"' | grep '"version"'
 ```
 
-Severity: **BROKEN** - these actively mislead the agent.
+## Step 2: Templates Check
 
-### 2. Drift Detection
-Compare what skills describe vs current code:
+Verify all required templates exist and are readable. Check each one:
 
-- Read each skill's patterns section
-- Find the actual code those patterns describe
-- Check if the code still matches the description
-- Look for new directories/modules not covered by any skill
-- Look for removed modules that still have skills
+```bash
+PLUGIN_DIR="${CLAUDE_SKILL_DIR}/.."
 
-Severity: **DRIFT** - skill is outdated but not necessarily harmful.
+# Core templates
+ls -la "$PLUGIN_DIR/templates/CLAUDE.md.template" 2>/dev/null
+ls -la "$PLUGIN_DIR/templates/review-skill.md.template" 2>/dev/null
+ls -la "$PLUGIN_DIR/templates/ecosystem-registry.json" 2>/dev/null
 
-### 3. Quality Assessment
-Evaluate each skill against research-backed criteria:
+# Review prompt templates (expect 6)
+ls "$PLUGIN_DIR/templates/review-prompts/"*.md.template 2>/dev/null | wc -l
 
-- Does it contain non-inferable information? (If Claude could figure it out from the code alone, it's low value)
-- Is it specific enough? (Concrete examples vs vague principles)
-- Is the CLAUDE.md lean? (No architecture overviews, no repo structure descriptions)
-- Are there duplicate skills covering overlapping domains?
-- Does the `description` field have good auto-invocation keywords?
-
-Severity: **QUALITY** - suboptimal but not broken.
-
-### 4. Gotcha Validation
-For each gotcha/workaround in skills:
-
-- Find the code the gotcha refers to
-- Check if the workaround/issue still exists
-- If the issue was fixed, the gotcha is obsolete
-
-Also scan for NEW gotchas:
-- New TODO/HACK/FIXME/WORKAROUND comments not captured in any skill
-- New magic values or implicit dependencies
-
-Severity: **OUTDATED** (obsolete gotchas) or **MISSING** (new undocumented gotchas).
-
-## Output Format
-
-For each finding:
-
-```
-[SEVERITY] Brief title
-
-  File: .claude/skills/X/SKILL.md (line N)
-  References: src/path/to/file.php (does not exist)
-  Issue: Skill mentions UserRepository::findByEmail() but this method was renamed to findByIdentifier()
-  Fix: Update skill to reference findByIdentifier()
+# Stack detection script
+node "$PLUGIN_DIR/scripts/detect-stack.js" --version 2>/dev/null || node -e "console.log('node ok')"
 ```
 
-## Priority Order
+Count: X/9 templates (CLAUDE.md.template, review-skill.md.template, ecosystem-registry.json, + 6 review prompts).
 
-1. BROKEN - fix immediately, these cause errors
-2. OUTDATED - remove or update, these mislead
-3. DRIFT - update, these are stale
-4. MISSING - create, these are gaps
-5. QUALITY - improve, these are suboptimal
+## Step 3: Project Configuration Check
 
-## Rules
+Check if current project has `.claude/` configuration:
 
-- Be precise. Include exact file paths and line numbers.
-- Don't flag things as broken just because you can't find them - verify thoroughly before flagging.
-- For drift detection, read the ACTUAL code, don't guess from file names.
-- Maximum 15 findings per dimension. Prioritize by impact.
+```bash
+ls -la .claude/ 2>/dev/null
+ls -la CLAUDE.md 2>/dev/null
+find .claude/skills/ -name "SKILL.md" 2>/dev/null
+find .claude/docs/ -name "*.md" 2>/dev/null
+find .claude/agents/ -name "*.md" 2>/dev/null
+```
+
+For each skill found, verify:
+- Has valid YAML frontmatter (`name` and `description` fields)
+- File is not empty
+
+Check review setup:
+- Does `.claude/skills/review/SKILL.md` exist?
+- How many review dimensions in `.claude/skills/review/prompts/`?
+- Compare against 6 base dimensions (security, tests, architecture, performance, naming, error-handling)
+
+## Step 4: Quick Broken References Check
+
+For each skill, scan for file path references and verify they still exist. Only check explicit paths (starting with `/`, `./`, or `src/`), not general mentions.
+
+## Step 5: Ecosystem Detection
+
+Read the ecosystem registry from `${CLAUDE_SKILL_DIR}/../templates/ecosystem-registry.json`.
+Also check for project-local registry at `.claude/setup-registry.json`.
+
+For each tool in registry, run its `detect` command to check if installed. Report status.
+
+Additionally detect these common tools:
+```bash
+# CLI tools
+which node 2>/dev/null
+which bun 2>/dev/null
+which docker 2>/dev/null
+which kubectl 2>/dev/null
+which terraform 2>/dev/null
+which gh 2>/dev/null
+which composer 2>/dev/null
+which php 2>/dev/null
+which python3 2>/dev/null
+which go 2>/dev/null
+which cargo 2>/dev/null
+
+# MCP servers (from Claude settings)
+cat ~/.claude/settings.json 2>/dev/null | grep -o '"[^"]*mcp[^"]*"' | head -20
+
+# Claude Code version
+claude --version 2>/dev/null
+```
+
+## Step 6: Present Report
+
+Format output as a clean diagnostic report:
+
+```
+claude-setup doctor
+
+  Plugin: v0.3.0 (installed) ✓
+  Templates: 9/9 ✓
+  Stack detector: PASS (node v22.x)
+
+  Project (.claude/):
+    CLAUDE.md: PASS | MISSING
+    Skills: N found, M invalid
+    Review: X/6 base dimensions
+    Broken refs: N found
+
+  Ecosystem:
+    Installed: superpowers, gh, context7, ...
+    Suggested: [tool] - [reason]
+    Not relevant: [tool] - [why skipped]
+
+  Runtime:
+    Node: v22.x
+    Claude Code: v1.x
+    OS: darwin/linux
+```
+
+Use ✓ for PASS, ✗ for FAIL, ⚠ for WARNING (partial/degraded).
+
+If there are issues, add a section at the bottom:
+
+```
+  Issues found:
+    1. [CATEGORY] description - how to fix
+    2. ...
+```
+
+Categories: MISSING, BROKEN, OUTDATED, SUGGESTION
