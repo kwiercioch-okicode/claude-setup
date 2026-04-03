@@ -296,7 +296,13 @@ CRITICAL: Step 7 (review) MUST happen before step 8 (PR). The review-gate hook w
 
 This is a multi-repo project: api-fotigo (PHP backend) + fotigo (React frontend). Work autonomously.
 ${jiraInstructions}`;
-  log('INFO', `Spawning claude`, { issueKey, phase, prompt: prompt.slice(0, 80) + '...', cwd: PROJECT_CWD });
+  // Triage: haiku classifies complexity, then route to right model
+  const complexity = await triageComplexity(issueKey);
+  const models = COMPLEXITY_MODELS[complexity] || COMPLEXITY_MODELS.moderate;
+  const model = phase === 'plan' ? models.plan : models.impl;
+  const modelArgs = ['--model', model];
+
+  log('INFO', `Spawning claude`, { issueKey, phase, complexity, model, cwd: PROJECT_CWD });
 
   // Post start comment to Jira
   if (process.env.JIRA_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN) {
@@ -304,12 +310,6 @@ ${jiraInstructions}`;
     const startText = `Claude rozpocz\u0105\u0142 ${phaseLabel} [${complexity}/${model}]...`;
     postJiraComment(issueKey, startText);
   }
-
-  // Triage: haiku classifies complexity, then route to right model
-  const complexity = await triageComplexity(issueKey);
-  const models = COMPLEXITY_MODELS[complexity] || COMPLEXITY_MODELS.moderate;
-  const model = phase === 'plan' ? models.plan : models.impl;
-  const modelArgs = ['--model', model];
 
   const child = spawn(CLAUDE_BIN, [
     '-p', prompt,
