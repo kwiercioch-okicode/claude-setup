@@ -156,25 +156,65 @@ const COMPLEXITY_MODELS = {
   complex:  { plan: 'opus',   impl: 'opus' },
 };
 
-function triageComplexity(issueKey) {
+function fetchTicketDescription(issueKey) {
   return new Promise((resolve) => {
-    const triagePrompt = `You are a complexity classifier. Read the Jira ticket ${issueKey} description and classify it.
+    if (!process.env.JIRA_URL || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN) {
+      resolve('');
+      return;
+    }
+    const auth = Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString('base64');
+    const url = new URL(`/rest/api/3/issue/${issueKey}?fields=summary,description`, process.env.JIRA_URL);
+    const mod = url.protocol === 'https:' ? require('node:https') : require('node:http');
+    const req = mod.request(url, {
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+    }, (res) => {
+      let d = '';
+      res.on('data', (c) => { d += c; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(d);
+          const summary = json.fields?.summary || '';
+          const desc = json.fields?.description?.content?.map(b =>
+            b.content?.map(c => c.text || '').join('')
+          ).join('\n') || '';
+          resolve(`${summary}\n${desc}`.slice(0, 500));
+        } catch { resolve(''); }
+      });
+    });
+    req.on('error', () => resolve(''));
+    req.setTimeout(5000, () => { req.destroy(); resolve(''); });
+    req.end();
+  });
+}
 
-Reply with ONLY ONE WORD: trivial, simple, moderate, or complex.
+function triageComplexity(issueKey) {
+  return new Promise(async (resolve) => {
+    // Fetch ticket description via REST API (no MCP needed)
+    const ticketText = await fetchTicketDescription(issueKey);
+
+    if (!ticketText) {
+      log('WARN', `No ticket text for ${issueKey}, defaulting to moderate`);
+      resolve('moderate');
+      return;
+    }
+
+    const triagePrompt = `Classify this Jira ticket complexity. Reply with ONLY ONE WORD.
+
+Ticket ${issueKey}:
+${ticketText}
 
 Rules:
-- trivial: typo, config change, 1 line fix, no tests needed
-- simple: bugfix, 1-3 files, pattern already exists in codebase, straightforward tests
-- moderate: new feature, 3-5 files, new tests, but clear approach
-- complex: architecture change, cross-cutting concerns, new patterns, 5+ files
+- trivial: typo, config change, 1 line fix
+- simple: bugfix, 1-3 files, pattern exists in codebase
+- moderate: new feature, 3-5 files, new tests needed
+- complex: architecture change, cross-cutting, 5+ files
 
-Reply ONLY the classification word, nothing else.`;
+Reply ONLY: trivial, simple, moderate, or complex`;
 
     const child = spawn(CLAUDE_BIN, [
       '-p', triagePrompt,
       '--model', 'haiku',
       '--output-format', 'json',
-      '--allowedTools', 'Bash,Read,Glob,Grep',
     ], {
       cwd: PROJECT_CWD,
       stdio: ['ignore', 'pipe', 'pipe'],
