@@ -119,7 +119,17 @@ function spawnClaude(issueKey, phase) {
     return false;
   }
 
-  const ticketLower = issueKey.toLowerCase().replace('-', '-');
+  const ticketLower = issueKey.toLowerCase();
+
+  const jiraInstructions = `
+IMPORTANT: Do NOT use Atlassian MCP tools (they require OAuth which is unavailable in headless mode).
+Use Jira REST API via curl instead. Env vars JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN are available.
+
+Fetch ticket: curl -s -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" "$JIRA_URL/rest/api/3/issue/${issueKey}"
+Post comment: curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" "$JIRA_URL/rest/api/3/issue/${issueKey}/comment" -d '{"body":{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}}'
+Get transitions: curl -s -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" "$JIRA_URL/rest/api/3/issue/${issueKey}/transitions"
+Do transition: curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" "$JIRA_URL/rest/api/3/issue/${issueKey}/transitions" -d '{"transition":{"id":"<ID>"}}'`;
+
   const prompt = phase === 'plan'
     ? `Fetch Jira ticket ${issueKey}, analyze the codebase, generate an implementation plan.
 
@@ -130,17 +140,19 @@ The plan MUST include an "Environment" section with:
 
 This is a multi-repo project: api-fotigo (PHP backend) + fotigo (React frontend). Always branch from staging.
 
-Save the plan to .devflow/plan-${ticketLower}.md, post it as a Jira comment on ${issueKey}, and transition the ticket to "Plan do akceptacji". Work autonomously, no confirmations needed.`
+Save the plan to .devflow/plan-${ticketLower}.md, post it as a Jira comment on ${issueKey}, and transition the ticket to "Plan do akceptacji". Work autonomously, no confirmations needed.
+${jiraInstructions}`
     : `Implement the plan for Jira ticket ${issueKey}. Read the plan from .devflow/plan-${ticketLower}.md.
 
 Create worktree(s) from staging branch as specified in the plan. Execute the plan, then ship (commit, review with auto-fix up to 2 attempts, PR). Post the PR link to Jira and transition to "PR gotowy". If review fails after 2 auto-fix attempts, post the issue list and transition to "Wymaga uwagi".
 
-This is a multi-repo project: api-fotigo (PHP backend) + fotigo (React frontend). Work autonomously.`;
+This is a multi-repo project: api-fotigo (PHP backend) + fotigo (React frontend). Work autonomously.
+${jiraInstructions}`;
   log('INFO', `Spawning claude`, { issueKey, phase, prompt: prompt.slice(0, 80) + '...', cwd: PROJECT_CWD });
 
   const child = spawn(CLAUDE_BIN, [
     '-p', prompt,
-    '--allowedTools', 'Read,Write,Edit,Glob,Grep,Bash,Agent,Skill,LSP,mcp__atlassian__getJiraIssue,mcp__atlassian__addCommentToJiraIssue',
+    '--allowedTools', 'Read,Write,Edit,Glob,Grep,Bash,Agent,Skill,LSP',
   ], {
     cwd: PROJECT_CWD,
     stdio: ['ignore', 'pipe', 'pipe'],
