@@ -147,11 +147,78 @@ function parsePayload(body) {
   return { issueKey, toStatus, phase };
 }
 
+// --- Complexity triage ---
+
+const COMPLEXITY_MODELS = {
+  trivial:  { plan: 'sonnet', impl: 'sonnet' },
+  simple:   { plan: 'sonnet', impl: 'sonnet' },
+  moderate: { plan: 'opus',   impl: 'sonnet' },
+  complex:  { plan: 'opus',   impl: 'opus' },
+};
+
+function triageComplexity(issueKey) {
+  return new Promise((resolve) => {
+    const triagePrompt = `You are a complexity classifier. Read the Jira ticket ${issueKey} description and classify it.
+
+Reply with ONLY ONE WORD: trivial, simple, moderate, or complex.
+
+Rules:
+- trivial: typo, config change, 1 line fix, no tests needed
+- simple: bugfix, 1-3 files, pattern already exists in codebase, straightforward tests
+- moderate: new feature, 3-5 files, new tests, but clear approach
+- complex: architecture change, cross-cutting concerns, new patterns, 5+ files
+
+Reply ONLY the classification word, nothing else.`;
+
+    const child = spawn(CLAUDE_BIN, [
+      '-p', triagePrompt,
+      '--model', 'haiku',
+      '--output-format', 'json',
+      '--allowedTools', 'Bash,Read,Glob,Grep',
+    ], {
+      cwd: PROJECT_CWD,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+
+    let stdout = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+
+    child.on('close', () => {
+      let result = 'moderate'; // default fallback
+      try {
+        const json = JSON.parse(stdout);
+        const text = (json.result || json.text || stdout).toLowerCase().trim();
+        const match = text.match(/\b(trivial|simple|moderate|complex)\b/);
+        if (match) result = match[1];
+      } catch {
+        // Try raw text
+        const match = stdout.toLowerCase().match(/\b(trivial|simple|moderate|complex)\b/);
+        if (match) result = match[1];
+      }
+      log('INFO', `Triage result for ${issueKey}`, { complexity: result, models: COMPLEXITY_MODELS[result] });
+      resolve(result);
+    });
+
+    child.on('error', () => {
+      log('WARN', `Triage failed for ${issueKey}, defaulting to moderate`);
+      resolve('moderate');
+    });
+
+    // Timeout after 30s
+    setTimeout(() => {
+      child.kill();
+      log('WARN', `Triage timeout for ${issueKey}, defaulting to moderate`);
+      resolve('moderate');
+    }, 30000);
+  });
+}
+
 // --- Claude spawning ---
 
 const activeJobs = new Map(); // issueKey → job info
 
-function spawnClaude(issueKey, phase) {
+async function spawnClaude(issueKey, phase) {
   // Prevent duplicate runs for same ticket
   if (activeJobs.has(issueKey)) {
     log('WARN', `Already running for ${issueKey}, skipping`);
@@ -234,12 +301,15 @@ ${jiraInstructions}`;
   // Post start comment to Jira
   if (process.env.JIRA_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN) {
     const phaseLabel = phase === 'plan' ? 'planowanie' : 'implementacj\u0119';
-    const startText = `Claude rozpocz\u0105\u0142 ${phaseLabel}...`;
+    const startText = `Claude rozpocz\u0105\u0142 ${phaseLabel} [${complexity}/${model}]...`;
     postJiraComment(issueKey, startText);
   }
 
-  // Plan: opus (better analysis). Impl: sonnet (cheaper, subagents do heavy lifting).
-  const modelArgs = phase === 'impl' ? ['--model', 'sonnet'] : [];
+  // Triage: haiku classifies complexity, then route to right model
+  const complexity = await triageComplexity(issueKey);
+  const models = COMPLEXITY_MODELS[complexity] || COMPLEXITY_MODELS.moderate;
+  const model = phase === 'plan' ? models.plan : models.impl;
+  const modelArgs = ['--model', model];
 
   const child = spawn(CLAUDE_BIN, [
     '-p', prompt,
