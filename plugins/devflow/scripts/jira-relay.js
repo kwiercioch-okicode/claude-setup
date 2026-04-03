@@ -372,7 +372,7 @@ ${jiraInstructions}`;
     ...maxTurns,
     '--output-format', 'json',
     '--allowedTools', 'Read,Write,Edit,Glob,Grep,Bash,Agent,Skill,LSP',
-    '--permission-mode', 'auto',
+    '--dangerously-skip-permissions',
   ], {
     cwd: PROJECT_CWD,
     stdio: ['ignore', 'pipe', 'pipe'],
