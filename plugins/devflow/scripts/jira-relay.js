@@ -52,6 +52,19 @@ const PROJECT_CWD = cwdIdx !== -1 ? args[cwdIdx + 1] : process.cwd();
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 const WEBHOOK_SECRET = process.env.JIRA_WEBHOOK_SECRET || null;
 
+// Load project-specific config from .devflow/relay-config.json
+let PROJECT_CONFIG = {
+  baseBranch: 'main',
+  repos: '',
+  testCommand: 'npm test',
+  prBase: 'main',
+};
+try {
+  const configPath = join(PROJECT_CWD, '.devflow', 'relay-config.json');
+  const loaded = JSON.parse(require('node:fs').readFileSync(configPath, 'utf8'));
+  PROJECT_CONFIG = { ...PROJECT_CONFIG, ...loaded };
+} catch { /* no config, use defaults */ }
+
 // Load Jira env vars from ~/.claude/settings.json if not in environment
 if (!process.env.JIRA_URL || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN) {
   try {
@@ -300,8 +313,8 @@ Write scenarios from USER perspective, behavioral language, no technical terms:
 - [ ] <co użytkownik robi i co widzi - happy path>
 - [ ] <co użytkownik robi i co widzi - edge case>
 
-Example good: "Fotograf otwiera sesję prywatną z 5 wybranymi zdjęciami, zakładka 'Zdjęcia do przekazania' pokazuje liczbę 3 (bo 2 są wykluczone)"
-Example bad: "deliverable_photos_count zwraca 3 z API response"
+Example good: "User opens the page with 5 selected items, the counter shows 3 (because 2 are excluded)"
+Example bad: "API returns count=3 from the endpoint"
 
 ## Ryzyka
 <niskie/średnie/wysokie - dlaczego>
@@ -311,11 +324,9 @@ Rekomendacja: TAK / NIE
 Powód: <dlaczego - nowa funkcjonalność / zmiana zachowania = TAK, bugfix / config = NIE>
 
 ## Environment
-- Branch: ${ticketLower}-<short-description> (z staging)
-- Repos: fotigo / api-fotigo / oba
+- Branch: ${ticketLower}-<short-description> (from ${PROJECT_CONFIG.baseBranch})
 - Worktree: <repo>/.worktrees/${ticketLower}-<short-description>
-
-This is a multi-repo project: api-fotigo (PHP backend) + fotigo (React frontend). Always branch from staging.
+${PROJECT_CONFIG.repos ? `- Repos: ${PROJECT_CONFIG.repos}` : ''}
 
 Save the plan to .devflow/plan-${ticketLower}.md, post it as a Jira comment on ${issueKey}, and transition the ticket to "Plan do akceptacji". Work autonomously, no confirmations needed.
 ${jiraInstructions}`
@@ -324,19 +335,19 @@ ${jiraInstructions}`
 Read the plan: .devflow/plan-${ticketLower}.md
 
 DO ALL OF THESE - DO NOT STOP EARLY:
-1. Create worktree from staging (or use existing one)
+1. Create worktree from ${PROJECT_CONFIG.baseBranch} (or use existing one)
 2. Write tests
 3. Implement the fix/feature
-4. Run tests (yarn test or npm test)
+4. Run tests (${PROJECT_CONFIG.testCommand})
 5. git add + git commit
 6. git push -u origin <branch>
-7. gh pr create --base staging --title "<title>" --body "<body>"
+7. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body>"
 
 YOU ARE NOT DONE UNTIL STEP 7 IS COMPLETE. If you write tests but don't commit and push and create PR, you have FAILED. Every step must execute.
 
 If a step fails, try to fix it. If you cannot fix it after 2 attempts, still push what you have and report the error.
 
-Multi-repo project: api-fotigo (PHP backend) + fotigo (React frontend).
+${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}
 ${jiraInstructions}`;
   // Triage: haiku classifies complexity, then route to right model
   const complexity = await triageComplexity(issueKey);
