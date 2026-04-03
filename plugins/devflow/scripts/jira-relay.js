@@ -58,6 +58,33 @@ const STATUS_PHASE_MAP = {
   'zaakceptowany': 'impl',
 };
 
+// --- Jira API helper ---
+
+function postJiraComment(issueKey, text) {
+  if (!process.env.JIRA_URL || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN) return;
+
+  const auth = Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString('base64');
+  const body = JSON.stringify({
+    body: { type: 'doc', version: 1, content: [
+      { type: 'paragraph', content: [{ type: 'text', text }] }
+    ]}
+  });
+
+  const url = new URL(`/rest/api/3/issue/${issueKey}/comment`, process.env.JIRA_URL);
+  const mod = url.protocol === 'https:' ? require('node:https') : require('node:http');
+  const req = mod.request(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
+  }, (res) => {
+    log('INFO', `Jira comment posted to ${issueKey}`, { status: res.statusCode });
+  });
+  req.on('error', (err) => {
+    log('WARN', `Failed to post Jira comment`, { issueKey, error: err.message });
+  });
+  req.write(body);
+  req.end();
+}
+
 // --- Logging ---
 
 const LOG_DIR = join(PROJECT_CWD, '.devflow');
@@ -193,6 +220,13 @@ For transitions, first GET available transitions, then POST the matching one.
 Transition to "PR gotowy" on success, or "Wymaga uwagi" on failure.`;
   log('INFO', `Spawning claude`, { issueKey, phase, prompt: prompt.slice(0, 80) + '...', cwd: PROJECT_CWD });
 
+  // Post start comment to Jira
+  if (process.env.JIRA_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN) {
+    const phaseLabel = phase === 'plan' ? 'planowanie' : 'implementację';
+    const startText = `Claude rozpoczął ${phaseLabel}...`;
+    postJiraComment(issueKey, startText);
+  }
+
   const child = spawn(CLAUDE_BIN, [
     '-p', prompt,
     '--output-format', 'json',
@@ -245,34 +279,12 @@ Transition to "PR gotowy" on success, or "Wymaga uwagi" on failure.`;
       stderr: stderr.slice(-500),
     });
 
-    // Post session ID to Jira as comment (for interactive resume)
-    if (sessionId && process.env.JIRA_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN) {
+    // Post end comment to Jira
+    {
       const phaseLabel = phase === 'plan' ? 'Planowanie' : 'Implementacja';
-      const statusEmoji = code === 0 ? 'ok' : 'blad';
-      const resumeCmd = `claude --resume ${sessionId}`;
-      const commentText = `${phaseLabel} zakonczone (${statusEmoji}). Session: ${resumeCmd}`;
-
-      const auth = Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString('base64');
-      const body = JSON.stringify({
-        body: { type: 'doc', version: 1, content: [
-          { type: 'paragraph', content: [{ type: 'text', text: commentText }] }
-        ]}
-      });
-
-      const url = new URL(`/rest/api/3/issue/${issueKey}/comment`, process.env.JIRA_URL);
-      const options = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
-      };
-
-      const req = require('node:https').request(url, options, (res) => {
-        log('INFO', `Session comment posted to ${issueKey}`, { sessionId, status: res.statusCode });
-      });
-      req.on('error', (err) => {
-        log('WARN', `Failed to post session comment`, { issueKey, error: err.message });
-      });
-      req.write(body);
-      req.end();
+      const status = code === 0 ? 'zakonczone' : 'BLAD';
+      const resumePart = sessionId ? ` | claude --resume ${sessionId}` : '';
+      postJiraComment(issueKey, `${phaseLabel} ${status}${resumePart}`);
     }
 
     // macOS notification
