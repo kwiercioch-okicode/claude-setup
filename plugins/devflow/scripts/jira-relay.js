@@ -330,11 +330,11 @@ ${PROJECT_CONFIG.repos ? `- Repos: ${PROJECT_CONFIG.repos}` : ''}
 
 Save the plan to .devflow/plan-${ticketLower}.md, post it as a Jira comment on ${issueKey}, and transition the ticket to "Plan do akceptacji". Work autonomously, no confirmations needed.
 ${jiraInstructions}`
-    : `You are an autonomous implementation agent. Your job is to implement a Jira ticket END TO END and create a Pull Request. You MUST NOT stop until a PR is created.
+    : `You are an autonomous implementation agent. Your job is to implement a Jira ticket END TO END: code, PR, and Jira update. You MUST NOT stop until ALL steps are done.
 
 Read the plan: .devflow/plan-${ticketLower}.md
 
-DO ALL OF THESE - DO NOT STOP EARLY:
+DO ALL OF THESE IN ORDER - DO NOT STOP EARLY:
 1. Create worktree from ${PROJECT_CONFIG.baseBranch} (or use existing one)
 2. Write tests
 3. Implement the fix/feature
@@ -342,10 +342,16 @@ DO ALL OF THESE - DO NOT STOP EARLY:
 5. git add + git commit
 6. git push -u origin <branch>
 7. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body>"
+8. Post PR link to Jira as comment (use node -e with https module, see instructions below)
+9. Transition Jira ticket to "PR gotowy" status (get transitions first, find matching ID, then POST)
 
-YOU ARE NOT DONE UNTIL STEP 7 IS COMPLETE. If you write tests but don't commit and push and create PR, you have FAILED. Every step must execute.
+YOU ARE NOT DONE UNTIL STEP 9 IS COMPLETE.
+- Stopping after tests = FAILED
+- Stopping after commit = FAILED
+- Stopping after PR = FAILED (must also update Jira)
+- Only after Jira comment + transition = SUCCESS
 
-If a step fails, try to fix it. If you cannot fix it after 2 attempts, still push what you have and report the error.
+If a step fails, try to fix it (max 2 attempts). If still failing, push what you have, post error to Jira, and transition to "Wymaga uwagi".
 
 ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}
 ${jiraInstructions}`;
