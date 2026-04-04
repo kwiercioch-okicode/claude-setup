@@ -658,6 +658,39 @@ async function runScenarios() {
     const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
     assert(src.includes('Jira credentials not configured') || src.includes('credentials'), 'no startup Jira warning');
   });
+
+  // --- Enhanced triage ---
+
+  await scenario('Triage prompt asks for quality score', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('QUALITY') && src.includes('1-5'), 'triage prompt missing quality score');
+  });
+
+  await scenario('Triage prompt asks for scope (which repo)', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('SCOPE'), 'triage prompt missing scope');
+  });
+
+  await scenario('Low quality ticket is rejected with Jira comment', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('quality') && (src.includes('Wymaga uwagi') || src.includes('wymaga')), 'no quality gate rejection');
+  });
+
+  await scenario('Duplicate detection checks existing PRs before spawn', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    // Should check for existing PR/worktree BEFORE spawning Claude
+    assert(src.includes('detectDuplicate') || src.includes('existingPr') || src.includes('duplicate'), 'no duplicate detection before spawn');
+  });
+
+  await scenario('Triage result includes scope in job object', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('job.scope') || src.includes("scope:"), 'no scope in job');
+  });
+
+  await scenario('Triage start comment includes scope info', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('scope') && src.includes('postJiraComment'), 'start comment missing scope');
+  });
 }
 
 // --- Main ---

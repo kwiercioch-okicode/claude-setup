@@ -269,29 +269,35 @@ function fetchTicketDescription(issueKey) {
   });
 }
 
-function triageComplexity(issueKey) {
+function triageTicket(issueKey) {
+  const DEFAULT_RESULT = { complexity: 'moderate', quality: 5, scope: 'unknown' };
+
   return new Promise(async (resolve) => {
     // Fetch ticket description via REST API (no MCP needed)
     const ticketText = await fetchTicketDescription(issueKey);
 
     if (!ticketText) {
       log('WARN', `No ticket text for ${issueKey}, defaulting to moderate`);
-      resolve('moderate');
+      resolve(DEFAULT_RESULT);
       return;
     }
 
-    const triagePrompt = `Classify this Jira ticket complexity. Reply with ONLY ONE WORD.
+    const repoList = PROJECT_CONFIG.repos || 'unknown';
+
+    const triagePrompt = `Analyze this Jira ticket. Reply with EXACTLY 3 lines, nothing else.
 
 Ticket ${issueKey}:
 ${ticketText}
 
-Rules:
-- trivial: typo, config change, 1 line fix
-- simple: bugfix, 1-3 files, pattern exists in codebase
-- moderate: new feature, 3-5 files, new tests needed
-- complex: architecture change, cross-cutting, 5+ files
+Reply format (3 lines, no extra text):
+QUALITY: <1-5>
+COMPLEXITY: <trivial|simple|moderate|complex>
+SCOPE: <which repo from: ${repoList}>
 
-Reply ONLY: trivial, simple, moderate, or complex`;
+Rules:
+- QUALITY 1-5: how well-defined is the ticket? 1=no info, 3=basic description, 5=detailed with acceptance criteria
+- COMPLEXITY: trivial=typo/config/1-line, simple=bugfix/1-3 files, moderate=feature/3-5 files, complex=architecture/5+ files
+- SCOPE: which repository this ticket affects most. If unclear, say "both" or "unknown"`;
 
     const child = spawn(CLAUDE_BIN, [
       '-p', triagePrompt,
@@ -307,31 +313,38 @@ Reply ONLY: trivial, simple, moderate, or complex`;
     child.stdout.on('data', (chunk) => { stdout += chunk; });
 
     child.on('close', () => {
-      let result = 'moderate'; // default fallback
+      const result = { ...DEFAULT_RESULT };
       try {
         const json = JSON.parse(stdout);
         const text = (json.result || json.text || stdout).toLowerCase().trim();
-        const match = text.match(/\b(trivial|simple|moderate|complex)\b/);
-        if (match) result = match[1];
+
+        const complexityMatch = text.match(/\b(trivial|simple|moderate|complex)\b/);
+        if (complexityMatch) result.complexity = complexityMatch[1];
+
+        const qualityMatch = text.match(/quality:\s*(\d)/);
+        if (qualityMatch) result.quality = parseInt(qualityMatch[1], 10);
+
+        const scopeMatch = text.match(/scope:\s*(.+)/i);
+        if (scopeMatch) result.scope = scopeMatch[1].trim().slice(0, 50);
       } catch {
-        // Try raw text
-        const match = stdout.toLowerCase().match(/\b(trivial|simple|moderate|complex)\b/);
-        if (match) result = match[1];
+        const text = stdout.toLowerCase();
+        const complexityMatch = text.match(/\b(trivial|simple|moderate|complex)\b/);
+        if (complexityMatch) result.complexity = complexityMatch[1];
       }
-      log('INFO', `Triage result for ${issueKey}`, { complexity: result, models: COMPLEXITY_MODELS[result] });
+      log('INFO', `Triage result for ${issueKey}`, result);
       resolve(result);
     });
 
     child.on('error', () => {
       log('WARN', `Triage failed for ${issueKey}, defaulting to moderate`);
-      resolve('moderate');
+      resolve(DEFAULT_RESULT);
     });
 
     // Timeout after 30s
     setTimeout(() => {
       child.kill();
       log('WARN', `Triage timeout for ${issueKey}, defaulting to moderate`);
-      resolve('moderate');
+      resolve(DEFAULT_RESULT);
     }, 30000);
   });
 }
@@ -442,20 +455,48 @@ Do NOT try to call Jira API yourself (curl is blocked by hooks). Just create the
 If a step fails, try to fix it (max 2 attempts). If still failing, push what you have.
 
 ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
-  // Triage: haiku classifies complexity, then route to right model
-  const complexity = await triageComplexity(issueKey);
+  // Duplicate detection: check if PR or worktree already exists for this ticket
+  const ticketId = issueKey.toLowerCase();
+  let existingPr = '';
+  try {
+    const allPrs = exec(`gh pr list --state open --json url,headRefName 2>/dev/null`, { cwd: PROJECT_CWD }).toString().trim();
+    const prs = JSON.parse(allPrs || '[]');
+    const duplicate = prs.find(pr => pr.headRefName.toLowerCase().includes(ticketId));
+    if (duplicate) existingPr = duplicate.url;
+  } catch { /* gh not available */ }
+
+  if (existingPr) {
+    log('INFO', `Duplicate PR found for ${issueKey}`, { pr: existingPr });
+    postJiraComment(issueKey, `PR ju\u017C istnieje: ${existingPr}`);
+    activeJobs.delete(issueKey);
+    return false;
+  }
+
+  // Triage: haiku classifies complexity, quality, and scope in one call
+  const triage = await triageTicket(issueKey);
+  const { complexity, quality, scope } = triage;
   const models = COMPLEXITY_MODELS[complexity] || COMPLEXITY_MODELS.moderate;
   const model = phase === 'plan' ? models.plan : models.impl;
   const modelArgs = ['--model', model];
 
+  // Quality gate: reject tickets with insufficient information (quality 1-2)
+  if (quality <= 2) {
+    log('WARN', `Ticket ${issueKey} quality too low`, { quality });
+    postJiraComment(issueKey, `Ticket wymaga wi\u0119cej informacji (quality: ${quality}/5). Dodaj opis, kryteria akceptacji lub kroki reprodukcji.`);
+    transitionJiraTicket(issueKey, 'Wymaga uwagi');
+    activeJobs.delete(issueKey);
+    return false;
+  }
+
   job.complexity = complexity;
   job.model = model;
-  log('INFO', `Spawning claude`, { issueKey, phase, complexity, model, cwd: PROJECT_CWD });
+  job.scope = scope;
+  log('INFO', `Spawning claude`, { issueKey, phase, complexity, quality, scope, model, cwd: PROJECT_CWD });
 
   // Post start comment to Jira
   if (process.env.JIRA_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN) {
     const phaseLabel = phase === 'plan' ? 'planowanie' : 'implementacj\u0119';
-    const startText = `Claude rozpocz\u0105\u0142 ${phaseLabel} [${complexity}/${model}]...`;
+    const startText = `Claude rozpocz\u0105\u0142 ${phaseLabel} [${complexity}/${model}] | scope: ${scope}`;
     postJiraComment(issueKey, startText);
   }
 
