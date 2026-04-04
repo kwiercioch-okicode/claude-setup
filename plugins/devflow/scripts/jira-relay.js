@@ -739,11 +739,9 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
       postJiraComment(issueKey, comment);
       log('INFO', `Outcome`, { issueKey, phase, outcome });
 
-      // If impl succeeded with PR, post PR link, transition Jira, cleanup worktree
+      // If impl succeeded with PR, transition Jira, cleanup worktree
+      // (PR link shown via GitHub-Jira integration in Development panel)
       if (phase === 'impl' && outcome.startsWith('zako')) {
-        if (job.prUrl) {
-          postJiraComment(issueKey, `PR: ${job.prUrl}`);
-        }
         // Transition to "PR gotowy"
         transitionJiraTicket(issueKey, TRANSITION_TARGETS.prReady);
 
