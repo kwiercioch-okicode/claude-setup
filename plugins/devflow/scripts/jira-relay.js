@@ -602,6 +602,18 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
       stderr: stderr.slice(-500),
     });
 
+    // Discover git repos for PR detection and recovery
+    const { readdirSync: _readdir, existsSync: _exists } = require('node:fs');
+    const gitRepoDirs = [];
+    if (_exists(join(PROJECT_CWD, '.git'))) gitRepoDirs.push(PROJECT_CWD);
+    try {
+      for (const e of _readdir(PROJECT_CWD, { withFileTypes: true })) {
+        if (e.isDirectory() && _exists(join(PROJECT_CWD, e.name, '.git'))) {
+          gitRepoDirs.push(join(PROJECT_CWD, e.name));
+        }
+      }
+    } catch { /* readdir failed */ }
+
     // Validate outcome and post end comment to Jira
     {
       const phaseLabel = phase === 'plan' ? 'Planowanie' : 'Implementacja';
@@ -615,23 +627,20 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
         const planPath = join(PROJECT_CWD, '.devflow', `plan-${issueKey.toLowerCase()}.md`);
         outcome = require('node:fs').existsSync(planPath) ? 'zako\u0144czone' : 'NIEPE\u0141NE (brak planu)';
       } else if (phase === 'impl') {
-        // Find PR by searching sub-repos (PROJECT_CWD may be Docker root, not a git repo)
         const ticketId = issueKey.toLowerCase();
         let prUrl = '';
 
-        // Discover git repos: PROJECT_CWD itself + immediate subdirectories with .git
-        const { readdirSync, existsSync } = require('node:fs');
-        const gitRepoDirs = [];
-        if (existsSync(join(PROJECT_CWD, '.git'))) {
-          gitRepoDirs.push(PROJECT_CWD);
-        }
+        // First: check checkpoint for PR URL (most reliable)
         try {
-          for (const entry of readdirSync(PROJECT_CWD, { withFileTypes: true })) {
-            if (entry.isDirectory() && existsSync(join(PROJECT_CWD, entry.name, '.git'))) {
-              gitRepoDirs.push(join(PROJECT_CWD, entry.name));
-            }
+          const cpPath = join(PROJECT_CWD, '.devflow', `checkpoint-${ticketId}.json`);
+          const cp = JSON.parse(require('node:fs').readFileSync(cpPath, 'utf8'));
+          if (cp.step >= 10 && cp.pr) {
+            prUrl = cp.pr;
+            log('INFO', `PR found via checkpoint for ${issueKey}`, { pr: prUrl });
           }
-        } catch { /* readdir failed */ }
+        } catch { /* no checkpoint or no PR in it */ }
+
+        // Fallback: search sub-repos via gh CLI
 
         // Search each git repo for PR matching ticket ID
         for (const repoDir of gitRepoDirs) {

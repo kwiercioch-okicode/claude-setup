@@ -468,7 +468,7 @@ async function runScenarios() {
   await scenario('Outcome exec calls are wrapped in try/catch', async () => {
     const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
     // The outcome validation block should have try/catch around exec calls
-    const outcomeSection = src.slice(src.indexOf('Find PR by'));
+    const outcomeSection = src.slice(src.indexOf('Validate outcome'));
     assert(outcomeSection.includes('try {') && outcomeSection.includes('catch'), 'exec calls not wrapped in try/catch');
   });
 
