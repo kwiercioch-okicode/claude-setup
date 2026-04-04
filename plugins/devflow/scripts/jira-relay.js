@@ -341,11 +341,12 @@ DO ALL OF THESE IN ORDER - DO NOT STOP EARLY:
 4. Run tests (${PROJECT_CONFIG.testCommand})
 5. git add + git commit
 6. git push -u origin <branch>
-7. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body>"
-8. Post PR link to Jira as comment (use node -e with https module, see instructions below)
-9. Transition Jira ticket to "PR gotowy" status (get transitions first, find matching ID, then POST)
+7. Review your own changes: read every changed file, check for bugs, leftover debug code, missing edge cases. Post a review summary as PR comment via gh CLI: gh pr review --comment --body "<review summary>"
+8. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body>"
+9. Post PR link to Jira as comment (use node -e with https module, see instructions below)
+10. Transition Jira ticket to "PR gotowy" status (get transitions first, find matching ID, then POST)
 
-YOU ARE NOT DONE UNTIL STEP 9 IS COMPLETE.
+YOU ARE NOT DONE UNTIL STEP 10 IS COMPLETE.
 - Stopping after tests = FAILED
 - Stopping after commit = FAILED
 - Stopping after PR = FAILED (must also update Jira)
