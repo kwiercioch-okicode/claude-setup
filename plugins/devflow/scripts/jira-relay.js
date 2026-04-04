@@ -406,6 +406,14 @@ Do transition: curl -s -X POST -H "Content-Type: application/json" -H "Authoriza
   const prompt = phase === 'plan'
     ? `Fetch Jira ticket ${issueKey}, analyze the codebase, generate an implementation plan.
 
+REVISION CHECK: If .devflow/plan-${ticketLower}.md already exists, this is a REVISION request.
+In revision mode:
+1. Read the existing plan (.devflow/plan-${ticketLower}.md)
+2. Fetch comments from Jira to read previous feedback: use the "Fetch ticket" curl command below (it includes comments)
+3. Identify what the reviewer wants changed based on their comments
+4. Generate a NEW plan that addresses the feedback while keeping what was correct
+5. Overwrite .devflow/plan-${ticketLower}.md with the revised plan
+
 IMPORTANT: Write the plan in Polish with proper Polish characters (ą, ę, ś, ć, ź, ż, ł, ó, ń).
 
 Use this exact template structure:

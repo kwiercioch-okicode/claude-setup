@@ -772,6 +772,14 @@ async function runScenarios() {
     const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
     assert(src.includes('checkpoint') && src.includes('checkpoint.step'), 'relay does not read checkpoint.step');
   });
+
+  await scenario('Plan prompt supports revision when plan already exists', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    // Plan prompt must detect existing plan file and treat as revision
+    assert(src.includes('REVISION') || src.includes('revision') || src.includes('plan already exists'), 'plan prompt missing revision detection');
+    // Must instruct Claude to read Jira comments for feedback
+    assert(src.includes('read comments') || src.includes('fetch comments') || src.includes('previous feedback'), 'plan prompt missing feedback reading for revision');
+  });
 }
 
 // --- Main ---
