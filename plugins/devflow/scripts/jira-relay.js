@@ -616,7 +616,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/webhook') {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       // Optional: verify webhook secret
       if (WEBHOOK_SECRET) {
         const token = req.headers['x-webhook-secret'] || req.headers['authorization'];
@@ -637,7 +637,7 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      const spawned = spawnClaude(result.issueKey, result.phase);
+      const spawned = await spawnClaude(result.issueKey, result.phase);
 
       log('INFO', `Webhook processed`, {
         issueKey: result.issueKey,
