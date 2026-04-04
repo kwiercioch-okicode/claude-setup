@@ -40,6 +40,14 @@ const { spawn, execSync: exec } = require('node:child_process');
 const { join } = require('node:path');
 const { mkdirSync, appendFileSync } = require('node:fs');
 
+// --- Process-level error protection ---
+process.on('uncaughtException', (err) => {
+  console.error(`[${new Date().toISOString()}] [ERROR] Uncaught exception: ${err.message}`);
+});
+process.on('unhandledRejection', (err) => {
+  console.error(`[${new Date().toISOString()}] [ERROR] Unhandled rejection: ${err}`);
+});
+
 // --- Config ---
 
 const args = process.argv.slice(2);
@@ -391,13 +399,22 @@ DO ALL OF THESE IN ORDER - DO NOT STOP EARLY:
 2. Write tests
 3. Implement the fix/feature
 4. Run tests (${PROJECT_CONFIG.testCommand})
-5. Self-review: read every changed file, check for bugs, leftover debug code. Fix any issues found.
-6. Write review verdict: echo '{"verdict":"APPROVED","findings":[]}' > .devflow/review-verdict.json
-7. git add + git commit (include review summary in commit body)
-8. git push -u origin <branch>
-9. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body with review summary>"
+5. CODE REVIEW - review every changed file checking:
+   - Security: SQL injection, XSS, secrets in code, input validation
+   - Naming: clear, consistent, domain-appropriate names
+   - Error handling: proper error boundaries, no swallowed errors
+   - Test coverage: are edge cases covered? missing scenarios?
+   - Correctness: does the code match the plan? any logic bugs?
+   Write findings as a list. Be critical - silence is not approval.
+6. FIX review findings - fix all issues found in step 5. Re-run tests after fixes.
+7. Write review verdict: save to .devflow/review-verdict.json:
+   {"verdict":"APPROVED|NEEDS_WORK","findings":["finding1","finding2"],"fixed":["fix1","fix2"]}
+   Verdict is APPROVED only if all findings were fixed. Include what you found AND what you fixed.
+8. git add + git commit (include review summary in commit body)
+9. git push -u origin <branch>
+10. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body with review findings and fixes>"
 
-YOU ARE NOT DONE UNTIL STEP 9 IS COMPLETE. The relay will handle Jira updates after you finish.
+YOU ARE NOT DONE UNTIL STEP 10 IS COMPLETE. The relay will handle Jira updates after you finish.
 Do NOT try to call Jira API yourself (curl is blocked by hooks). Just create the PR.
 
 If a step fails, try to fix it (max 2 attempts). If still failing, push what you have.
@@ -418,7 +435,7 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
     postJiraComment(issueKey, startText);
   }
 
-  const maxTurns = phase === 'plan' ? ['--max-turns', '30'] : ['--max-turns', '80'];
+  const maxTurns = phase === 'plan' ? ['--max-turns', '30'] : ['--max-turns', '100'];
 
   const child = spawn(CLAUDE_BIN, [
     '-p', prompt,
