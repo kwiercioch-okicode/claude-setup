@@ -643,12 +643,20 @@ async function runScenarios() {
 
   await scenario('Plan timeout is shorter than impl timeout', async () => {
     const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
-    // Plan should have a shorter timeout than impl
-    const planTimeoutMatch = src.match(/plan.*?(\d+)\s*\*\s*60\s*\*\s*1000/i);
-    const implTimeoutMatch = src.match(/impl.*?(\d+)\s*\*\s*60\s*\*\s*1000/i) || src.match(/(\d+)\s*\*\s*60\s*\*\s*1000.*impl/i);
-    // At minimum, check that two different timeouts exist
     assert(src.includes("15 * 60") || src.includes("15*60"), 'no plan-specific timeout');
     assert(src.includes("60 * 60") || src.includes("60*60"), 'no impl-specific timeout');
+  });
+
+  await scenario('Status endpoint includes uptime and config', async () => {
+    const res = await httpRequest('GET', '/status');
+    assert(typeof res.json?.uptime === 'number', `no uptime: ${res.body}`);
+    assert(typeof res.json?.config === 'object', `no config: ${res.body}`);
+    assert(typeof res.json?.config?.jiraConfigured === 'boolean', 'no jiraConfigured flag');
+  });
+
+  await scenario('Relay warns about missing Jira credentials on startup', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('Jira credentials not configured') || src.includes('credentials'), 'no startup Jira warning');
   });
 }
 

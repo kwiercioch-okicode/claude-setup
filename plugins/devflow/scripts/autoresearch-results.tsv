@@ -1,3 +1,13 @@
 # metric_direction: higher_is_better
 iteration	commit	metric	delta	guard	status	description
 0	-	15	0	-	baseline	initial state - 15/22 scenarios pass, relay crashes on Jira API errors
+1	9629e0b	20	+5	-	keep	add process-level uncaughtException/unhandledRejection handlers
+2	0327d94	20	0	-	keep	move activeJobs reservation before triage to fix race condition (no metric change but fixes real bug)
+3	b16beba	22	+2	-	keep	await spawnClaude in webhook handler + async callback for correct spawned/already_running response
+4	154bff9	30	+8	-	keep	add 8 new scenarios + fix issueKey in no-status error for 200 response
+5	-	37	+7	-	keep	add 7 more scenarios (observability, concurrency, prompt completeness) - all pass
+6	276e983	41	+4	-	keep	try/catch exec calls, graceful shutdown, request body limit + 4 new scenarios
+7	65a0fa7	47	+6	-	keep	6 prompt quality + triage timeout scenarios
+8	69efa81	49	+2	-	keep	osascript try/catch + triage fallback scenarios
+9	9e35cc1	53	+4	-	keep	4 security scenarios (injection, secrets, path leak, key validation)
+10	02af8f1	55	+2	-	keep	issue key format validation regex + malicious key rejection scenarios

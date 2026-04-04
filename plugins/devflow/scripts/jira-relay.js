@@ -85,7 +85,13 @@ if (!process.env.JIRA_URL || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TO
   } catch { /* settings not found or invalid */ }
 }
 
-// Status name (lowercase) → phase
+// Warn if Jira credentials are still missing after all loading attempts
+if (!process.env.JIRA_URL || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN) {
+  console.warn('[WARN] Jira credentials not configured. Comments and transitions will be skipped.');
+  console.warn('       Set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN in env or ~/.claude/settings.json');
+}
+
+// Status name (lowercase) -> phase
 const STATUS_PHASE_MAP = {
   'do realizacji': 'plan',
   'zaakceptowany': 'impl',
@@ -648,7 +654,16 @@ const server = http.createServer((req, res) => {
       };
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ active, totalActive: activeJobs.size }));
+    res.end(JSON.stringify({
+      active,
+      totalActive: activeJobs.size,
+      uptime: Math.round(process.uptime()),
+      config: {
+        baseBranch: PROJECT_CONFIG.baseBranch,
+        prBase: PROJECT_CONFIG.prBase,
+        jiraConfigured: !!(process.env.JIRA_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN),
+      },
+    }));
     return;
   }
 
