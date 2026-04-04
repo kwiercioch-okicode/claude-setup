@@ -478,6 +478,39 @@ async function runScenarios() {
     // Check it's inside the platform check at minimum
     assert(src.includes("process.platform === 'darwin'"), 'osascript not guarded by platform check');
   });
+
+  // --- Prompt quality: deeper checks ---
+
+  await scenario('Plan prompt has good/bad E2E scenario examples', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('Example good') || src.includes('example good'), 'no good E2E example');
+    assert(src.includes('Example bad') || src.includes('example bad'), 'no bad E2E example');
+  });
+
+  await scenario('Impl prompt specifies what to do when tests fail', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('step fails') || src.includes('tests fail'), 'no test failure handling instruction');
+  });
+
+  await scenario('Plan prompt saves plan to .devflow/plan-<ticket>.md', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('.devflow/plan-'), 'no plan file path in prompt');
+  });
+
+  await scenario('Impl prompt reads plan from .devflow/plan-<ticket>.md', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('Read the plan') || src.includes('.devflow/plan-'), 'impl prompt missing plan read instruction');
+  });
+
+  await scenario('Triage timeout prevents hanging', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('setTimeout') && src.includes('30000'), 'no triage timeout');
+  });
+
+  await scenario('Jira comment includes complexity and model info', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('complexity') && src.includes('model'), 'start comment missing complexity/model');
+  });
 }
 
 // --- Main ---
