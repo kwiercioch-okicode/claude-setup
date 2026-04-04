@@ -336,6 +336,17 @@ async function spawnClaude(issueKey, phase) {
     return false;
   }
 
+  // Reserve slot immediately to prevent race conditions with concurrent webhooks
+  const job = {
+    phase,
+    pid: null,
+    startedAt: new Date().toISOString(),
+    lastActivity: 'triage...',
+    stdoutLines: 0,
+    stderrSize: 0,
+  };
+  activeJobs.set(issueKey, job);
+
   const ticketLower = issueKey.toLowerCase();
 
   const jiraInstructions = `
@@ -451,15 +462,8 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
     env: { ...process.env },
   });
 
-  const job = {
-    phase,
-    pid: child.pid,
-    startedAt: new Date().toISOString(),
-    lastActivity: '',
-    stdoutLines: 0,
-    stderrSize: 0,
-  };
-  activeJobs.set(issueKey, job);
+  job.pid = child.pid;
+  job.lastActivity = 'running...';
 
   let stdout = '';
   let stderr = '';
