@@ -487,15 +487,19 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
         const planPath = join(PROJECT_CWD, '.devflow', `plan-${issueKey.toLowerCase()}.md`);
         outcome = require('node:fs').existsSync(planPath) ? 'zako\u0144czone' : 'NIEPE\u0141NE (brak planu)';
       } else if (phase === 'impl') {
-        // Check if PR was created by looking for gh pr in stdout or checking git
-        const prCreated = stdout.includes('pull/') || stdout.includes('pr create');
-        const hasCommit = exec(`git -C "${PROJECT_CWD}" log --oneline -1 2>/dev/null`) !== null;
-        if (prCreated) {
+        // Check if PR exists via gh CLI (stdout is JSON so can't grep it)
+        const prCheck = exec(`gh pr list --head "${issueKey.toLowerCase()}" --json url --jq ".[0].url" 2>/dev/null`, { cwd: PROJECT_CWD });
+        // Also try broader search
+        const prCheck2 = !prCheck ? exec(`gh pr list --state open --json url,headRefName --jq '.[] | select(.headRefName | contains("${issueKey.toLowerCase().replace('-','-')}")) | .url' 2>/dev/null`, { cwd: PROJECT_CWD }) : null;
+        const prUrl = prCheck || prCheck2;
+
+        if (prUrl) {
           outcome = 'zako\u0144czone';
-        } else if (hasCommit) {
-          outcome = 'NIEPE\u0141NE (commit jest, brak PR)';
+          job.prUrl = prUrl.trim();
         } else {
-          outcome = 'NIEPE\u0141NE (brak commitu i PR)';
+          // Check if at least committed
+          const hasNewCommit = exec(`git -C "${PROJECT_CWD}" branch -r --contains HEAD 2>/dev/null`);
+          outcome = hasNewCommit ? 'NIEPE\u0141NE (commit jest, brak PR)' : 'NIEPE\u0141NE (brak commitu i PR)';
         }
       } else {
         outcome = code === 0 ? 'zako\u0144czone' : 'B\u0141\u0104D';
@@ -507,10 +511,8 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
 
       // If impl succeeded with PR, post PR link and transition Jira
       if (phase === 'impl' && outcome.startsWith('zako')) {
-        // Extract PR URL from stdout
-        const prMatch = stdout.match(/https:\/\/github\.com\/[^\s"]+\/pull\/\d+/);
-        if (prMatch) {
-          postJiraComment(issueKey, `PR: ${prMatch[0]}`);
+        if (job.prUrl) {
+          postJiraComment(issueKey, `PR: ${job.prUrl}`);
         }
         // Transition to "PR gotowy"
         transitionJiraTicket(issueKey, 'PR gotowy');
