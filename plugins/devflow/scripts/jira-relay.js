@@ -210,7 +210,7 @@ function parsePayload(body) {
     toStatus = data?.issue?.fields?.status?.name;
   }
 
-  if (!toStatus) return { error: 'No status transition found' };
+  if (!toStatus) return { error: 'No status transition found', issueKey };
 
   const phase = STATUS_PHASE_MAP[toStatus.toLowerCase()];
   if (!phase) return { error: `Unknown status: ${toStatus}`, issueKey, toStatus };

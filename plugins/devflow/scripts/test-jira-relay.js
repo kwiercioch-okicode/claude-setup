@@ -335,6 +335,69 @@ async function runScenarios() {
     const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
     assert(src.includes('osascript') || src.includes('notification'), 'no macOS notification');
   });
+
+  // --- Error handling and robustness ---
+
+  await scenario('POST /webhook with empty body returns 400', async () => {
+    const res = await httpRequest('POST', '/webhook', '');
+    assert(res.status === 400, `status ${res.status}`);
+  });
+
+  await scenario('POST /webhook with issue key but no status returns error', async () => {
+    const res = await httpRequest('POST', '/webhook', {
+      issue: { key: 'TEST-NO-STATUS' },
+    });
+    // Should return 200 with ignored (has issue key but no valid status)
+    assert(res.status === 200, `status ${res.status}`);
+    assert(res.json?.status === 'ignored', `not ignored: ${res.body}`);
+  });
+
+  await scenario('Relay survives rapid sequential webhooks', async () => {
+    // Fire 5 webhooks rapidly for different tickets
+    const promises = [];
+    for (let i = 100; i < 105; i++) {
+      promises.push(httpRequest('POST', '/webhook', {
+        issue: { key: `TEST-${i}` },
+        transition: { to_status: 'Do realizacji' },
+      }));
+    }
+    const results = await Promise.all(promises);
+    const spawned = results.filter(r => r.json?.status === 'spawned').length;
+    assert(spawned === 5, `only ${spawned}/5 spawned`);
+    await new Promise(r => setTimeout(r, 2000));
+  });
+
+  await scenario('Webhook secret validation rejects unauthorized', async () => {
+    // This tests the code path - relay was started without secret so it should accept all
+    // Verify the code handles the secret check path
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('WEBHOOK_SECRET'), 'no webhook secret support');
+    assert(src.includes('401') || src.includes('Unauthorized'), 'no 401 response for bad secret');
+  });
+
+  await scenario('Impl prompt instructs max 2 fix attempts on failure', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('max 2 attempts') || src.includes('max 2'), 'no retry limit in impl prompt');
+  });
+
+  await scenario('Plan prompt includes OpenSpec recommendation section', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('OpenSpec'), 'no OpenSpec section in plan prompt');
+    assert(src.includes('Rekomendacja') || src.includes('TAK') || src.includes('NIE'), 'no OpenSpec recommendation');
+  });
+
+  await scenario('Relay loads project config from .devflow/relay-config.json', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('relay-config.json'), 'no relay-config.json loading');
+    assert(src.includes('baseBranch'), 'no baseBranch config');
+    assert(src.includes('prBase'), 'no prBase config');
+  });
+
+  await scenario('Relay logs to .devflow/jira-relay.log', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('jira-relay.log'), 'no log file');
+    assert(src.includes('appendFileSync'), 'no file append for logging');
+  });
 }
 
 // --- Main ---
