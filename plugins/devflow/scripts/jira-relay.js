@@ -280,11 +280,12 @@ function fetchTicketDescription(issueKey) {
           const desc = json.fields?.description?.content?.map(b =>
             b.content?.map(c => c.text || '').join('')
           ).join('\n') || '';
-          // Extract last 3 comments (most recent feedback)
+          // Extract last 3 human comments (filter out relay/bot comments)
+          const BOT_PREFIXES = ['Claude rozpocz', 'Planowanie:', 'Implementacja:', 'Ticket wymaga', 'PR:', 'Auto-resume', 'PR ju', 'Uwaga: ticket'];
           const comments = (json.fields?.comment?.comments || [])
-            .slice(-3)
             .map(c => c.body?.content?.map(b => b.content?.map(t => t.text || '').join('')).join('\n') || '')
-            .filter(Boolean)
+            .filter(text => text && !BOT_PREFIXES.some(prefix => text.startsWith(prefix)))
+            .slice(-3)
             .join('\n---\n');
           const commentSection = comments ? `\nRecent comments:\n${comments}` : '';
           resolve(`${summary}\n${desc}${commentSection}`.slice(0, 800));
