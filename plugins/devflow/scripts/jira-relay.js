@@ -110,6 +110,56 @@ function postJiraComment(issueKey, text) {
   req.end();
 }
 
+function transitionJiraTicket(issueKey, targetStatus) {
+  if (!process.env.JIRA_URL || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN) return;
+
+  const auth = Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString('base64');
+  const mod = require('node:https');
+
+  // First get available transitions
+  const getUrl = new URL(`/rest/api/3/issue/${issueKey}/transitions`, process.env.JIRA_URL);
+  const getReq = mod.request(getUrl, {
+    headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+  }, (res) => {
+    let d = '';
+    res.on('data', (c) => { d += c; });
+    res.on('end', () => {
+      try {
+        const json = JSON.parse(d);
+        const transition = json.transitions?.find(t =>
+          t.name.toLowerCase() === targetStatus.toLowerCase() ||
+          t.to?.name?.toLowerCase() === targetStatus.toLowerCase()
+        );
+        if (!transition) {
+          log('WARN', `Transition "${targetStatus}" not found for ${issueKey}`, {
+            available: json.transitions?.map(t => t.name),
+          });
+          return;
+        }
+        // Do transition
+        const postUrl = new URL(`/rest/api/3/issue/${issueKey}/transitions`, process.env.JIRA_URL);
+        const postReq = mod.request(postUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
+        }, (postRes) => {
+          log('INFO', `Jira transition ${issueKey} -> ${targetStatus}`, { status: postRes.statusCode });
+        });
+        postReq.on('error', (err) => {
+          log('WARN', `Failed to transition ${issueKey}`, { error: err.message });
+        });
+        postReq.write(JSON.stringify({ transition: { id: transition.id } }));
+        postReq.end();
+      } catch (err) {
+        log('WARN', `Failed to parse transitions for ${issueKey}`, { error: err.message });
+      }
+    });
+  });
+  getReq.on('error', (err) => {
+    log('WARN', `Failed to get transitions for ${issueKey}`, { error: err.message });
+  });
+  getReq.end();
+}
+
 // --- Logging ---
 
 const LOG_DIR = join(PROJECT_CWD, '.devflow');
@@ -339,27 +389,18 @@ DO ALL OF THESE IN ORDER - DO NOT STOP EARLY:
 2. Write tests
 3. Implement the fix/feature
 4. Run tests (${PROJECT_CONFIG.testCommand})
-5. git add + git commit
-6. git push -u origin <branch>
-7. Self-review: read every changed file, check for bugs, leftover debug code, missing edge cases. Then write verdict file:
-   echo '{"verdict":"APPROVED","findings":[]}' > .devflow/review-verdict.json
-   If you find issues, fix them first, re-commit, then write APPROVED verdict.
-   The review-gate hook blocks PR creation without this file.
-8. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body>"
-   Include review summary in PR body.
-9. Post PR link to Jira as comment (use node -e with https module, see instructions below)
-10. Transition Jira ticket to "PR gotowy" status (get transitions first, find matching ID, then POST)
+5. Self-review: read every changed file, check for bugs, leftover debug code. Fix any issues found.
+6. Write review verdict: echo '{"verdict":"APPROVED","findings":[]}' > .devflow/review-verdict.json
+7. git add + git commit (include review summary in commit body)
+8. git push -u origin <branch>
+9. gh pr create --base ${PROJECT_CONFIG.prBase} --title "<title>" --body "<body with review summary>"
 
-YOU ARE NOT DONE UNTIL STEP 10 IS COMPLETE.
-- Stopping after tests = FAILED
-- Stopping after commit = FAILED
-- Stopping after PR = FAILED (must also update Jira)
-- Only after Jira comment + transition = SUCCESS
+YOU ARE NOT DONE UNTIL STEP 9 IS COMPLETE. The relay will handle Jira updates after you finish.
+Do NOT try to call Jira API yourself (curl is blocked by hooks). Just create the PR.
 
-If a step fails, try to fix it (max 2 attempts). If still failing, push what you have, post error to Jira, and transition to "Wymaga uwagi".
+If a step fails, try to fix it (max 2 attempts). If still failing, push what you have.
 
-${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}
-${jiraInstructions}`;
+${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
   // Triage: haiku classifies complexity, then route to right model
   const complexity = await triageComplexity(issueKey);
   const models = COMPLEXITY_MODELS[complexity] || COMPLEXITY_MODELS.moderate;
@@ -463,6 +504,21 @@ ${jiraInstructions}`;
       const comment = `${phaseLabel}: ${outcome}${resumeCmd ? ` | ${resumeCmd}` : ''}`;
       postJiraComment(issueKey, comment);
       log('INFO', `Outcome`, { issueKey, phase, outcome });
+
+      // If impl succeeded with PR, post PR link and transition Jira
+      if (phase === 'impl' && outcome.startsWith('zako')) {
+        // Extract PR URL from stdout
+        const prMatch = stdout.match(/https:\/\/github\.com\/[^\s"]+\/pull\/\d+/);
+        if (prMatch) {
+          postJiraComment(issueKey, `PR: ${prMatch[0]}`);
+        }
+        // Transition to "PR gotowy"
+        transitionJiraTicket(issueKey, 'PR gotowy');
+      }
+      // If impl failed, transition to "Wymaga uwagi"
+      if (phase === 'impl' && !outcome.startsWith('zako')) {
+        transitionJiraTicket(issueKey, 'Wymaga uwagi');
+      }
     }
 
     // macOS notification
