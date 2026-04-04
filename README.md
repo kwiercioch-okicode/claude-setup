@@ -49,24 +49,35 @@ Jira ticket (Backlog)
     |-- move to "Do realizacji" --> webhook fires
     |
     v
-Claude: fetch ticket -> analyze -> plan -> post to Jira
+jira-relay.js: Haiku triage (complexity classification)
+    |-- trivial/simple -> sonnet
+    |-- moderate       -> opus (plan) + sonnet (impl)
+    |-- complex        -> opus
+    |
+    v
+Claude: fetch ticket -> analyze -> plan -> relay posts to Jira
     |
     v
 Jira: "Plan do akceptacji" (human reviews plan)
     |-- move to "Zaakceptowany" --> webhook fires
     |
     v
-Claude: worktree -> execute -> commit -> review -> PR -> post to Jira
+Claude: worktree -> execute -> commit -> 5-dim review + fix -> PR
+    |-- relay posts result to Jira, transitions status, sends macOS notification
     |
     v
 Jira: "PR gotowy" (human merges)
 ```
 
 **Components:**
-- `jira-relay.js` - HTTP server receiving Jira webhooks, spawns `claude -p`
-- Cloudflare Tunnel - exposes local relay to Jira Cloud
+- `jira-relay.js` - HTTP server receiving Jira webhooks, Haiku triage for model routing, spawns `claude -p`. Relay handles ALL Jira operations post-completion (Claude does not call Jira API during implementation). Endpoints: POST /webhook, GET /health, GET /status (complexity/model/uptime/config), GET /logs
+- Cloudflare Tunnel - exposes local relay to Jira Cloud (tunnel cleanup on startup prevents stale connection errors)
 - Jira Automation - 2 rules sending webhooks on status transitions
 - Plan template - structured comment with diagnosis, environment, tasks, E2E test plan
+
+**Security and resilience:** issue key validation (regex), 1MB body limit, process timeouts (15min plan, 60min impl), graceful shutdown, process-level error handlers. Max turns: plan=30, impl=100. Session ID posted in Jira comments for resume (`claude --resume <id>`).
+
+**Tests:** 68 E2E scenario tests in `test-jira-relay.js`.
 
 **Usage:** `jira-relay-start` (shell alias) starts tunnel + relay. Create ticket in Jira CA project, move to "Do realizacji".
 

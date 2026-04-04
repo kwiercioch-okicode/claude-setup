@@ -872,7 +872,7 @@ body::after {
       <div class="arch-node plugin-df" data-reveal data-delay="200">
         <div class="node-type">Plugin — df</div>
         <div class="node-name">SDLC Workflow</div>
-        <div class="node-detail">10 commands · 7 scripts · 3 hooks<br>plan → execute → commit → review → ship</div>
+        <div class="node-detail">10 commands · 7 scripts · 5 hooks<br>plan → execute → commit → review → ship<br>Haiku triage · 68 E2E tests · relay-driven Jira ops</div>
       </div>
       <div class="arch-node plugin-cs" data-reveal data-delay="400">
         <div class="node-type">Plugin — cs</div>
@@ -910,7 +910,7 @@ body::after {
 <!-- Ship Pipeline -->
 <section class="section">
   <h2 class="section-title">Ship Pipeline</h2>
-  <p class="section-subtitle">Full SDLC pipeline from Jira ticket to pull request - /df:ship orchestrates the chain</p>
+  <p class="section-subtitle">Full SDLC pipeline from Jira ticket to pull request - Haiku triage routes to the right model, relay handles all Jira ops post-completion</p>
 
   <div class="pipeline" id="pipeline">
     <div class="pipeline-step" data-reveal>
@@ -1153,7 +1153,7 @@ body::after {
     <div class="cmd-item" data-reveal data-delay="200" data-cmd="review"><span class="cmd-icon">🔍</span><div><div class="cmd-name">/df:review</div><div class="cmd-desc">Multi-dimension code review</div></div></div>
     <div class="cmd-item" data-reveal data-delay="250" data-cmd="pr"><span class="cmd-icon">🚀</span><div><div class="cmd-name">/df:pr</div><div class="cmd-desc">Auto PR description</div></div></div>
     <div class="cmd-item" data-reveal data-delay="300" data-cmd="version"><span class="cmd-icon">🏷️</span><div><div class="cmd-name">/df:version</div><div class="cmd-desc">Semver + changelog</div></div></div>
-    <div class="cmd-item" data-reveal data-delay="350" data-cmd="ship"><span class="cmd-icon">📦</span><div><div class="cmd-name">/df:ship</div><div class="cmd-desc">Full SDLC pipeline + Jira automation</div></div></div>
+    <div class="cmd-item" data-reveal data-delay="350" data-cmd="ship"><span class="cmd-icon">📦</span><div><div class="cmd-name">/df:ship</div><div class="cmd-desc">Full SDLC pipeline + Haiku triage + relay-driven Jira ops</div></div></div>
     <div class="cmd-item" data-reveal data-delay="400" data-cmd="doctor"><span class="cmd-icon">🩺</span><div><div class="cmd-name">/df:doctor</div><div class="cmd-desc">Guardrails health check</div></div></div>
     <div class="cmd-item" data-reveal data-delay="450" data-cmd="jira"><span class="cmd-icon">🎫</span><div><div class="cmd-name">/df:jira</div><div class="cmd-desc">Jira lifecycle: fetch, plan, results, transitions</div></div></div>
     <div class="cmd-item" data-reveal data-delay="500" data-cmd="cs-init" style="border-color: #a78bfa33;"><span class="cmd-icon">🔧</span><div><div class="cmd-name" style="color: var(--purple);">/cs:init</div><div class="cmd-desc">Generate .claude/ config</div></div></div>
@@ -1268,12 +1268,12 @@ const CMD_DATA = {
     details: { 'Version sources': 'Git tags, package.json', 'Auto-detect': 'Conventional commits analysis', 'Multi-repo': 'Tags each repo with same version' }
   },
   ship: {
-    icon: '📦', title: '/df:ship', subtitle: 'Full SDLC pipeline: plan -> execute -> ship. Jira-driven with ticket ID.',
+    icon: '📦', title: '/df:ship', subtitle: 'Full SDLC pipeline: plan -> execute -> ship. Jira-driven with Haiku triage and model routing.',
     script: 'ship-prepare.js',
     flags: ['FO-512 (ticket mode)', '--phase plan|impl', '--skip plan,execute', '--auto', '--dry-run', '--draft'],
-    flow: ['Default: plan -> execute -> commit -> review -> PR', 'Ticket: jira fetch -> plan -> [checkpoint] -> worktree -> execute -> commit -> review -> PR -> jira update', 'Webhook: jira-relay.js receives Jira webhook -> spawns claude -p with --phase'],
-    description: 'Full SDLC orchestrator. Without ticket: plan -> execute -> commit -> review -> PR. With ticket ID (e.g. CA-512): adds Jira fetch, plan posting, worktree creation, and Jira status transitions. Phases (--phase plan|impl) enable Jira webhook automation - relay server receives webhooks and spawns headless Claude sessions. Review verdict gate with auto-fix loop (max 2 attempts) in ticket mode.',
-    details: { 'Default': 'plan -> execute -> commit -> review -> PR', 'Ticket mode': '+ jira fetch/post, worktree, status transitions', 'Legacy': '--skip plan,execute for commit -> review -> PR only', 'Webhook relay': 'jira-relay.js + Cloudflare Tunnel', 'Plan template': 'Diagnosis, OpenSpec recommendation, Environment, Tasks, E2E Test Plan, Risks' }
+    flow: ['Default: plan -> execute -> commit -> review -> PR', 'Ticket: jira fetch -> plan -> [checkpoint] -> worktree -> execute -> commit -> review -> PR -> jira update', 'Webhook: jira-relay.js -> Haiku triage (complexity) -> model routing -> spawns claude -p'],
+    description: 'Full SDLC orchestrator. Without ticket: plan -> execute -> commit -> review -> PR. With ticket ID (e.g. CA-512): adds Jira fetch, plan posting, worktree creation, and Jira status transitions. Haiku triage classifies complexity (trivial/simple=sonnet, moderate=opus+sonnet, complex=opus). Relay handles ALL Jira operations post-completion - Claude does not call Jira API during implementation. Impl phase includes 5-dimension code review + fix + verdict. Session ID posted in Jira comments for resume. Max turns: plan=30, impl=100.',
+    details: { 'Default': 'plan -> execute -> commit -> review -> PR', 'Ticket mode': '+ jira fetch/post, worktree, status transitions', 'Triage': 'Haiku classifies complexity -> routes to sonnet/opus', 'Relay post-completion': 'Validates outcome, posts Jira comment (with session ID), transitions status', 'Security': 'Issue key validation, 1MB body limit, timeouts (15min plan, 60min impl), graceful shutdown', 'Tests': '68 E2E scenarios in test-jira-relay.js', 'Endpoints': 'POST /webhook, GET /health, GET /status, GET /logs' }
   },
   doctor: {
     icon: '🩺', title: '/df:doctor', subtitle: 'Guardrails health check - 11 checks, zero LLM',
@@ -1284,11 +1284,11 @@ const CMD_DATA = {
     details: { 'Hooks': 'Verifies scripts exist at expected paths', 'Discovery': 'Dimensions, multi-repo, worktree, OpenSpec', 'gh CLI': 'Checks authentication status' }
   },
   jira: {
-    icon: '🎫', title: '/df:jira', subtitle: 'Jira integration: fetch, post plans/results, transition statuses',
+    icon: '🎫', title: '/df:jira', subtitle: 'Jira integration: fetch, post plans/results, transition statuses. Relay-driven post-completion.',
     flags: ['fetch <TICKET-ID>', 'post-plan <TICKET-ID>', 'post-result <TICKET-ID>', 'post-test-cases <TICKET-ID> <change-id>', 'post-test-results <TICKET-ID> <spec-file>'],
-    flow: ['fetch: REST API -> structured ticket data -> /df:plan context', 'post-plan: plan -> Jira comment (template) -> transition to "Plan do akceptacji"', 'post-result: PR link + summary -> Jira comment -> transition to "PR gotowy"', 'post-test-cases: spec.md scenarios -> Jira comment', 'post-test-results: Playwright -> results table + screenshots -> Jira'],
-    description: 'Five operations for full Jira lifecycle. In headless mode (webhook pipeline), uses Jira REST API via curl (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN env vars). In interactive mode, uses Atlassian MCP. Post-plan uses structured template: Diagnosis, OpenSpec recommendation, Environment (branch/worktree/repos), Tasks with groups, E2E Test Plan, Risks.',
-    details: { 'Headless': 'curl Jira REST API (env vars)', 'Interactive': 'Atlassian MCP (OAuth)', 'Plan template': 'plugins/devflow/templates/jira/plan-comment.md', 'Webhook relay': 'jira-relay.js maps status transitions to claude -p phases', 'Statuses': 'Backlog -> Do realizacji -> Plan do akceptacji -> Zaakceptowany -> PR gotowy -> Gotowy + Wymaga uwagi' }
+    flow: ['fetch: REST API -> structured ticket data -> /df:plan context', 'post-plan: plan -> Jira comment (template) -> transition to "Plan do akceptacji"', 'post-result: PR link + summary + session ID -> Jira comment -> transition to "PR gotowy"', 'post-test-cases: spec.md scenarios -> Jira comment', 'post-test-results: Playwright -> results table + screenshots -> Jira'],
+    description: 'Five operations for full Jira lifecycle. In webhook mode, relay handles all Jira operations post-completion - Claude focuses on code, relay validates outcome and posts results with session ID for resume. In interactive mode, uses Atlassian MCP. Post-plan uses structured template: Diagnosis, OpenSpec recommendation, Environment (branch/worktree/repos), Tasks with groups, E2E Test Plan, Risks.',
+    details: { 'Headless': 'Relay posts to Jira REST API after Claude completes (not during)', 'Interactive': 'Atlassian MCP (OAuth)', 'Session resume': 'Session ID in Jira comments - claude --resume <id>', 'Relay endpoints': 'POST /webhook, GET /health, GET /status (complexity/model/uptime), GET /logs', 'Statuses': 'Backlog -> Do realizacji -> Plan do akceptacji -> Zaakceptowany -> PR gotowy -> Gotowy + Wymaga uwagi' }
   },
   'cs-harvest': {
     icon: '🌾', title: '/cs:harvest', subtitle: 'Promote accumulated learnings into permanent project artifacts',
