@@ -577,6 +577,41 @@ async function runScenarios() {
     });
     assert(res.status === 400, `key with spaces not rejected: ${res.status}`);
   });
+
+  // --- Prompt completeness: deeper validation ---
+
+  await scenario('Impl prompt includes worktree creation from baseBranch', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('Create worktree') || src.includes('worktree'), 'no worktree instruction');
+    assert(src.includes('baseBranch') || src.includes('PROJECT_CONFIG.baseBranch'), 'no baseBranch reference');
+  });
+
+  await scenario('Impl prompt includes git push with -u flag', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('push -u') || src.includes('push -u origin'), 'no -u flag in push instruction');
+  });
+
+  await scenario('Impl prompt includes gh pr create with --base', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('gh pr create') || src.includes('pr create'), 'no gh pr create');
+    assert(src.includes('--base') || src.includes('prBase'), 'no --base in PR creation');
+  });
+
+  await scenario('Plan prompt transition target is Plan do akceptacji', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('Plan do akceptacji'), 'wrong transition target in plan prompt');
+  });
+
+  await scenario('Relay uses --dangerously-skip-permissions flag', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('--dangerously-skip-permissions'), 'missing --dangerously-skip-permissions');
+    assert(src.includes('--allow-dangerously-skip-permissions'), 'missing --allow-dangerously-skip-permissions');
+  });
+
+  await scenario('Relay uses --output-format json for session ID extraction', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes("'--output-format', 'json'") || src.includes('"--output-format"'), 'no --output-format json');
+  });
 }
 
 // --- Main ---
