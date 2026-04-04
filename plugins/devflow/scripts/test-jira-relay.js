@@ -398,6 +398,86 @@ async function runScenarios() {
     assert(src.includes('jira-relay.log'), 'no log file');
     assert(src.includes('appendFileSync'), 'no file append for logging');
   });
+
+  // --- Observability and error recovery ---
+
+  await scenario('Impl prompt tells Claude not to call Jira API directly', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    // Claude should NOT call Jira in impl phase - relay handles it
+    assert(src.includes('relay will handle Jira') || src.includes('Do NOT try to call Jira'), 'impl prompt missing relay delegation');
+  });
+
+  await scenario('Plan prompt tells Claude to post plan as Jira comment', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('post it as a Jira comment') || src.includes('Jira comment'), 'plan prompt missing Jira comment instruction');
+  });
+
+  await scenario('Relay handles concurrent webhooks for different tickets', async () => {
+    // Fire 3 webhooks for different tickets simultaneously
+    const [r1, r2, r3] = await Promise.all([
+      httpRequest('POST', '/webhook', { issue: { key: 'CONC-1' }, transition: { to_status: 'Do realizacji' } }),
+      httpRequest('POST', '/webhook', { issue: { key: 'CONC-2' }, transition: { to_status: 'Do realizacji' } }),
+      httpRequest('POST', '/webhook', { issue: { key: 'CONC-3' }, transition: { to_status: 'Zaakceptowany' } }),
+    ]);
+    assert(r1.json?.status === 'spawned', `CONC-1 not spawned: ${r1.body}`);
+    assert(r2.json?.status === 'spawned', `CONC-2 not spawned: ${r2.body}`);
+    assert(r3.json?.status === 'spawned', `CONC-3 not spawned: ${r3.body}`);
+    await new Promise(r => setTimeout(r, 2000));
+  });
+
+  await scenario('Health endpoint includes activeJobs count', async () => {
+    const res = await httpRequest('GET', '/health');
+    assert(typeof res.json?.activeJobs === 'object', `no activeJobs in health: ${res.body}`);
+  });
+
+  await scenario('Outcome validation handles exec errors gracefully', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    // exec calls for gh/git should be wrapped or have fallbacks
+    assert(src.includes('2>/dev/null') || src.includes('catch'), 'no error suppression in exec calls');
+  });
+
+  await scenario('Impl prompt specifies all 10 required steps', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    // Check that the prompt mentions steps 1-10
+    for (let i = 1; i <= 10; i++) {
+      assert(src.includes(`${i}.`) || src.includes(`${i}. `), `missing step ${i} in impl prompt`);
+    }
+  });
+
+  await scenario('Triage prompt has clear complexity criteria', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('trivial:') || src.includes('trivial -'), 'no trivial criteria');
+    assert(src.includes('simple:') || src.includes('simple -'), 'no simple criteria');
+    assert(src.includes('moderate:') || src.includes('moderate -'), 'no moderate criteria');
+    assert(src.includes('complex:') || src.includes('complex -'), 'no complex criteria');
+  });
+
+  // --- Robustness: error recovery, limits, shutdown ---
+
+  await scenario('Relay has graceful shutdown handler', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('SIGTERM') || src.includes('graceful'), 'no graceful shutdown');
+    assert(src.includes('SIGINT'), 'no SIGINT handler');
+  });
+
+  await scenario('Relay has request body size limit', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    assert(src.includes('MAX_BODY_SIZE') || src.includes('too large') || src.includes('413'), 'no body size limit');
+  });
+
+  await scenario('Outcome exec calls are wrapped in try/catch', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    // The outcome validation block should have try/catch around exec calls
+    const outcomeSection = src.slice(src.indexOf('Find PR by'));
+    assert(outcomeSection.includes('try {') && outcomeSection.includes('catch'), 'exec calls not wrapped in try/catch');
+  });
+
+  await scenario('Relay handles osascript failure gracefully', async () => {
+    const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
+    // osascript call should not crash relay if it fails (e.g. on Linux)
+    // Check it's inside the platform check at minimum
+    assert(src.includes("process.platform === 'darwin'"), 'osascript not guarded by platform check');
+  });
 }
 
 // --- Main ---

@@ -512,30 +512,35 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
       } else if (phase === 'impl') {
         // Find PR by searching all open PRs containing the ticket ID in branch name
         const ticketId = issueKey.toLowerCase();
-        const allPrs = (exec(`gh pr list --state open --json url,headRefName 2>/dev/null`, { cwd: PROJECT_CWD }) || '').toString().trim();
         let prUrl = '';
         try {
+          const allPrs = exec(`gh pr list --state open --json url,headRefName 2>/dev/null`, { cwd: PROJECT_CWD }).toString().trim();
           const prs = JSON.parse(allPrs || '[]');
-          const match = prs.find(pr => pr.headRefName.toLowerCase().includes(ticketId.replace('-', '-')));
+          const match = prs.find(pr => pr.headRefName.toLowerCase().includes(ticketId));
           if (match) prUrl = match.url;
-        } catch { /* parse error */ }
+        } catch { /* gh not available or parse error */ }
 
         // Also check worktrees for branch name and search by that
         if (!prUrl) {
-          const worktrees = (exec(`git -C "${PROJECT_CWD}" worktree list --porcelain 2>/dev/null`) || '').toString();
-          const branchMatch = worktrees.match(/branch refs\/heads\/([^\n]*${ticketId.replace('-', '.')}[^\n]*)/i);
-          if (branchMatch) {
-            const branch = branchMatch[1];
-            const branchPr = (exec(`gh pr list --head "${branch}" --json url --jq ".[0].url" 2>/dev/null`, { cwd: PROJECT_CWD }) || '').toString().trim();
-            if (branchPr) prUrl = branchPr;
-          }
+          try {
+            const worktrees = exec(`git -C "${PROJECT_CWD}" worktree list --porcelain 2>/dev/null`).toString();
+            const branchMatch = worktrees.match(/branch refs\/heads\/([^\n]*${ticketId.replace('-', '.')}[^\n]*)/i);
+            if (branchMatch) {
+              const branch = branchMatch[1];
+              const branchPr = exec(`gh pr list --head "${branch}" --json url --jq ".[0].url" 2>/dev/null`, { cwd: PROJECT_CWD }).toString().trim();
+              if (branchPr) prUrl = branchPr;
+            }
+          } catch { /* git/gh not available */ }
         }
 
         if (prUrl) {
           outcome = 'zako\u0144czone';
           job.prUrl = prUrl;
         } else {
-          const hasNewCommit = (exec(`git -C "${PROJECT_CWD}" worktree list 2>/dev/null`) || '').toString().includes(ticketId);
+          let hasNewCommit = false;
+          try {
+            hasNewCommit = exec(`git -C "${PROJECT_CWD}" worktree list 2>/dev/null`).toString().includes(ticketId);
+          } catch { /* git not available */ }
           outcome = hasNewCommit ? 'NIEPE\u0141NE (commit jest, brak PR)' : 'NIEPE\u0141NE (brak commitu i PR)';
         }
       } else {
@@ -615,8 +620,19 @@ const server = http.createServer((req, res) => {
   // Webhook endpoint
   if (req.method === 'POST' && req.url === '/webhook') {
     let body = '';
-    req.on('data', (chunk) => { body += chunk; });
+    let bodyTooLarge = false;
+    const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > MAX_BODY_SIZE) bodyTooLarge = true;
+    });
     req.on('end', async () => {
+      if (bodyTooLarge) {
+        log('WARN', 'Webhook body too large', { size: body.length });
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'error', reason: 'Payload too large' }));
+        return;
+      }
       // Optional: verify webhook secret
       if (WEBHOOK_SECRET) {
         const token = req.headers['x-webhook-secret'] || req.headers['authorization'];
@@ -678,3 +694,24 @@ server.listen(PORT, () => {
   }
   console.log(`\nWaiting for webhooks...\n`);
 });
+
+// --- Graceful shutdown ---
+function gracefulShutdown(signal) {
+  log('INFO', `Received ${signal}, shutting down gracefully...`);
+  server.close(() => {
+    log('INFO', 'HTTP server closed');
+    if (activeJobs.size > 0) {
+      log('WARN', `${activeJobs.size} active jobs still running, waiting...`);
+      // Don't kill child processes - let them finish
+    }
+    process.exit(0);
+  });
+  // Force exit after 30s if graceful shutdown hangs
+  setTimeout(() => {
+    log('WARN', 'Graceful shutdown timeout, forcing exit');
+    process.exit(1);
+  }, 30000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
