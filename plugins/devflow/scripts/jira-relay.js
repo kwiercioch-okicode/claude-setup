@@ -281,7 +281,7 @@ function fetchTicketDescription(issueKey) {
             b.content?.map(c => c.text || '').join('')
           ).join('\n') || '';
           // Extract last 3 human comments (filter out relay/bot comments)
-          const BOT_PREFIXES = ['Claude rozpocz', 'Planowanie:', 'Implementacja:', 'Ticket wymaga', 'PR:', 'Auto-resume', 'PR ju', 'Uwaga: ticket'];
+          const BOT_PREFIXES = ['Claude rozpocz', 'Planowanie:', 'Implementacja:', 'Ticket wymaga', 'PR:', 'Auto-resume', 'PR ju', 'Uwaga: ticket', 'Plan implementacji'];
           const comments = (json.fields?.comment?.comments || [])
             .map(c => c.body?.content?.map(b => b.content?.map(t => t.text || '').join('')).join('\n') || '')
             .filter(text => text && !BOT_PREFIXES.some(prefix => text.startsWith(prefix)))
