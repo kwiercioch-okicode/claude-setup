@@ -384,6 +384,8 @@ ${jiraInstructions}`
 
 Read the plan: .devflow/plan-${ticketLower}.md
 
+IMPORTANT: If the worktree already has commits from a previous run, check if PR exists (gh pr list --head <branch>). If PR exists, you are done. If not, continue from where the previous run stopped.
+
 DO ALL OF THESE IN ORDER - DO NOT STOP EARLY:
 1. Create worktree from ${PROJECT_CONFIG.baseBranch} (or use existing one)
 2. Write tests
@@ -487,18 +489,32 @@ ${PROJECT_CONFIG.repos ? `Project repos: ${PROJECT_CONFIG.repos}` : ''}`;
         const planPath = join(PROJECT_CWD, '.devflow', `plan-${issueKey.toLowerCase()}.md`);
         outcome = require('node:fs').existsSync(planPath) ? 'zako\u0144czone' : 'NIEPE\u0141NE (brak planu)';
       } else if (phase === 'impl') {
-        // Check if PR exists via gh CLI (stdout is JSON so can't grep it)
-        const prCheck = exec(`gh pr list --head "${issueKey.toLowerCase()}" --json url --jq ".[0].url" 2>/dev/null`, { cwd: PROJECT_CWD });
-        // Also try broader search
-        const prCheck2 = !prCheck ? exec(`gh pr list --state open --json url,headRefName --jq '.[] | select(.headRefName | contains("${issueKey.toLowerCase().replace('-','-')}")) | .url' 2>/dev/null`, { cwd: PROJECT_CWD }) : null;
-        const prUrl = (prCheck || prCheck2 || '').toString().trim();
+        // Find PR by searching all open PRs containing the ticket ID in branch name
+        const ticketId = issueKey.toLowerCase();
+        const allPrs = (exec(`gh pr list --state open --json url,headRefName 2>/dev/null`, { cwd: PROJECT_CWD }) || '').toString().trim();
+        let prUrl = '';
+        try {
+          const prs = JSON.parse(allPrs || '[]');
+          const match = prs.find(pr => pr.headRefName.toLowerCase().includes(ticketId.replace('-', '-')));
+          if (match) prUrl = match.url;
+        } catch { /* parse error */ }
+
+        // Also check worktrees for branch name and search by that
+        if (!prUrl) {
+          const worktrees = (exec(`git -C "${PROJECT_CWD}" worktree list --porcelain 2>/dev/null`) || '').toString();
+          const branchMatch = worktrees.match(/branch refs\/heads\/([^\n]*${ticketId.replace('-', '.')}[^\n]*)/i);
+          if (branchMatch) {
+            const branch = branchMatch[1];
+            const branchPr = (exec(`gh pr list --head "${branch}" --json url --jq ".[0].url" 2>/dev/null`, { cwd: PROJECT_CWD }) || '').toString().trim();
+            if (branchPr) prUrl = branchPr;
+          }
+        }
 
         if (prUrl) {
           outcome = 'zako\u0144czone';
           job.prUrl = prUrl;
         } else {
-          // Check if at least committed
-          const hasNewCommit = exec(`git -C "${PROJECT_CWD}" branch -r --contains HEAD 2>/dev/null`);
+          const hasNewCommit = (exec(`git -C "${PROJECT_CWD}" worktree list 2>/dev/null`) || '').toString().includes(ticketId);
           outcome = hasNewCommit ? 'NIEPE\u0141NE (commit jest, brak PR)' : 'NIEPE\u0141NE (brak commitu i PR)';
         }
       } else {
