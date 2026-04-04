@@ -620,6 +620,20 @@ async function runScenarios() {
     assert(src.includes('SIGTERM') || src.includes('SIGKILL'), 'no kill on timeout');
   });
 
+  await scenario('GET /logs returns recent log entries', async () => {
+    const res = await httpRequest('GET', '/logs');
+    assert(res.status === 200, `status ${res.status}`);
+    // Should have at least some log content from startup
+    assert(res.body.length > 0, 'empty log response');
+  });
+
+  await scenario('GET /logs?lines=5 limits output', async () => {
+    const res = await httpRequest('GET', '/logs?lines=5');
+    assert(res.status === 200, `status ${res.status}`);
+    const lineCount = res.body.split('\n').filter(Boolean).length;
+    assert(lineCount <= 5, `too many lines: ${lineCount}`);
+  });
+
   await scenario('Status endpoint includes complexity and model per job', async () => {
     const src = require('node:fs').readFileSync(RELAY_SCRIPT, 'utf8');
     // Status response should include complexity and model

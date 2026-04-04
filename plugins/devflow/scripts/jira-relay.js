@@ -614,6 +614,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Recent logs
+  if (req.method === 'GET' && (req.url === '/logs' || req.url?.startsWith('/logs?'))) {
+    const url = new URL(req.url, `http://localhost:${PORT}`);
+    const lines = parseInt(url.searchParams.get('lines') || '50', 10);
+    let logContent = '';
+    try {
+      const fullLog = require('node:fs').readFileSync(LOG_FILE, 'utf8');
+      const logLines = fullLog.split('\n').filter(Boolean);
+      logContent = logLines.slice(-Math.min(lines, 200)).join('\n');
+    } catch { logContent = '(no log file yet)'; }
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(logContent);
+    return;
+  }
+
   // Status
   if (req.method === 'GET' && req.url === '/status') {
     const now = Date.now();
