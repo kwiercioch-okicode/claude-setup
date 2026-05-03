@@ -17,17 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/secrets-guard.js\"",
-            "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/branch-guard.js\"",
-            "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/review-gate.js\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/bash-guards.js\"",
             "timeout": 5000
           }
         ]
@@ -47,12 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/test-first-guard.js\"",
-            "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/openspec-guard.js\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/lib/edit-write-guards.js\"",
             "timeout": 3000
           }
         ]

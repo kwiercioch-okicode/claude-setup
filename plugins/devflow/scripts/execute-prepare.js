@@ -88,51 +88,76 @@ function parsePlan(content) {
 }
 
 /**
- * Build waves from groups based on dependencies.
+ * Validate the dependency DAG: detect missing references and cycles.
+ * Returns { error: string | null }.
  */
-function buildWaves(groups) {
-  const waves = [];
-  const completed = new Set();
-  let remaining = [...groups];
+function validateDag(groups) {
+  const byName = new Map(groups.map(g => [g.name, g]));
 
-  let safetyCounter = 0;
-  const maxIterations = groups.length + 1;
-
-  while (remaining.length > 0 && safetyCounter < maxIterations) {
-    safetyCounter++;
-
-    const ready = remaining.filter(g =>
-      g.dependsOn.every(dep => completed.has(dep))
-    );
-
-    if (ready.length === 0) {
-      // Circular dependency or missing dependency
-      const stuck = remaining.map(g => `${g.name} (depends on: ${g.dependsOn.join(', ')})`);
-      return {
-        waves,
-        error: `Circular or missing dependency detected. Stuck groups:\n${stuck.join('\n')}`,
-      };
+  // Missing deps
+  const missing = [];
+  for (const g of groups) {
+    for (const dep of g.dependsOn) {
+      if (!byName.has(dep)) missing.push(`${g.name} → ${dep}`);
     }
-
-    waves.push({
-      waveNumber: waves.length + 1,
-      groups: ready.map(g => ({
-        name: g.name,
-        tasks: g.tasks,
-        taskCount: g.tasks.length,
-        pendingTasks: g.tasks.filter(t => !t.done).length,
-      })),
-      parallelGroups: ready.length,
-    });
-
-    for (const g of ready) {
-      completed.add(g.name);
-    }
-
-    remaining = remaining.filter(g => !completed.has(g.name));
+  }
+  if (missing.length > 0) {
+    return { error: `Missing dependency references:\n${missing.join('\n')}` };
   }
 
-  return { waves, error: null };
+  // Cycle detection — DFS with three colors (white/gray/black).
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = new Map(groups.map(g => [g.name, WHITE]));
+  const stack = [];
+  let cycle = null;
+
+  function visit(name) {
+    if (cycle) return;
+    if (color.get(name) === GRAY) {
+      const i = stack.indexOf(name);
+      cycle = stack.slice(i).concat(name);
+      return;
+    }
+    if (color.get(name) === BLACK) return;
+    color.set(name, GRAY);
+    stack.push(name);
+    for (const dep of byName.get(name).dependsOn) visit(dep);
+    stack.pop();
+    color.set(name, BLACK);
+  }
+
+  for (const g of groups) {
+    visit(g.name);
+    if (cycle) break;
+  }
+
+  if (cycle) {
+    return { error: `Circular dependency: ${cycle.join(' → ')}` };
+  }
+
+  return { error: null };
+}
+
+/**
+ * Compute topological level per group (longest path from a root).
+ * Levels are display-only — dispatch is event-driven on `dependsOn`.
+ */
+function computeLevels(groups) {
+  const byName = new Map(groups.map(g => [g.name, g]));
+  const level = new Map();
+
+  function depthOf(name) {
+    if (level.has(name)) return level.get(name);
+    const g = byName.get(name);
+    const d = g.dependsOn.length === 0
+      ? 0
+      : 1 + Math.max(...g.dependsOn.map(depthOf));
+    level.set(name, d);
+    return d;
+  }
+
+  for (const g of groups) depthOf(g.name);
+  return level;
 }
 
 function main() {
@@ -170,7 +195,8 @@ function main() {
 
   // Parse plan if we have content
   let groups = [];
-  let waveResult = { waves: [], error: null };
+  let dagError = null;
+  let maxLevel = 0;
 
   if (planContent) {
     groups = parsePlan(planContent);
@@ -180,7 +206,19 @@ function main() {
       process.exit(1);
     }
 
-    waveResult = buildWaves(groups);
+    const validation = validateDag(groups);
+    dagError = validation.error;
+
+    if (!dagError) {
+      const levels = computeLevels(groups);
+      groups = groups.map(g => ({
+        ...g,
+        level: levels.get(g.name),
+        taskCount: g.tasks.length,
+        pendingTasks: g.tasks.filter(t => !t.done).length,
+      }));
+      maxLevel = Math.max(0, ...groups.map(g => g.level));
+    }
   }
 
   const totalTasks = groups.reduce((sum, g) => sum + g.tasks.length, 0);
@@ -195,9 +233,8 @@ function main() {
     totalTasks,
     pendingTasks,
     completedTasks: totalTasks - pendingTasks,
-    waves: waveResult.waves,
-    waveCount: waveResult.waves.length,
-    waveError: waveResult.error,
+    maxLevel,
+    dagError,
     project: {
       branch: gitState.currentBranch,
       baseBranch: detectBaseBranch(cwd),

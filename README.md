@@ -31,7 +31,7 @@ Two plugins in one marketplace:
 |---|---|
 | `/df:worktree` | Worktree management (create, remove, up, down, status) |
 | `/df:plan` | Generate structured implementation plan from any input |
-| `/df:execute` | Wave-based plan execution with dependency tracking |
+| `/df:execute` | DAG-based plan execution with continuous dispatch and dependency tracking |
 | `/df:commit` | Smart commit with style detection |
 | `/df:review` | Multi-dimension code review with prepare scripts |
 | `/df:pr` | Auto-generated PR description |
@@ -83,15 +83,14 @@ Jira: "PR gotowy" (human merges)
 
 ### Guardrail Hooks
 
-Five hooks (`plugins/devflow/hooks/hooks.json`) that enforce workflow rules without relying on LLM behavior:
+Three consolidated hook entry points (`plugins/devflow/hooks/hooks.json`) that enforce workflow rules without relying on LLM behavior. Each runs as one Node process per tool invocation — guards are bundled to minimize cold-start overhead and share a cached git state (`git-cache.js`, TTL 5s):
 
-| Hook | Event | Type | Description |
+| Hook | Event | Bundled checks | Description |
 |---|---|---|---|
-| `session-guard.js` | SessionStart | injection | Detects active worktrees and injects context |
-| `branch-guard.js` | PreToolUse (Bash) | blocking | Blocks commits and pushes to main/master |
-| `review-gate.js` | PreToolUse (Bash) | blocking | Blocks PR creation without review verdict |
-| `test-first-guard.js` | PreToolUse (Edit/Write) | injection | Reminds to write failing test before production code |
-| `openspec-guard.js` | PreToolUse (Edit/Write) | injection | Reminds to create OpenSpec proposal for behavioral changes |
+| `session-guard.js` | SessionStart | — | Detects active worktrees and injects context |
+| `bash-guards.js` | PreToolUse (Bash) | secrets + branch + review-gate | Blocks: secret-exposing commands, commits/pushes to main/master/staging, `gh pr create` without verdict |
+| `secrets-guard.js` | PreToolUse (Read) | — | Blocks reading `.env`, credentials, private keys |
+| `edit-write-guards.js` | PreToolUse (Edit/Write) | test-first + openspec | Reminds about failing test before production code; reminds about OpenSpec proposal for behavioral changes |
 
 ### Prepare Scripts
 
