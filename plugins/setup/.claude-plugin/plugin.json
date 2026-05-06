@@ -1,6 +1,6 @@
 {
   "name": "cs",
-  "description": "Generate and maintain .claude/ configuration from codebase analysis. Scans for non-inferable details, domain rules, and traps.",
-  "version": "0.1.0",
+  "description": "Generate and maintain .claude/ configuration from codebase analysis. Auto-captures session learnings, recalls them at session start, harvests them into skills.",
+  "version": "0.2.0",
   "author": { "name": "kwiercioch-okicode" }
 }
